@@ -64,11 +64,12 @@ workflows:
       - name: Install pods
         script: |
           find . -name "Podfile" -execdir pod install \;
-      - name: Flutter build iOS (debug)
+      - name: Flutter build iOS (debug, simulator)
         script: |
-          flutter build ios --debug --no-codesign
+          # Build for iOS Simulator to avoid code signing
+          flutter build ios --debug --simulator
     artifacts:
-      - build/ios/Debug-iphoneos/*.app
+      - build/ios/iphonesimulator/*.app
 
   # Simple Release Build (No code signing - for testing with AltStore/Sideloadly)
   ios-simple-release:
@@ -87,10 +88,10 @@ workflows:
         script: |
           cd ios
           pod install
-      - name: Flutter build iOS (release, no codesign)
+      - name: Flutter build IPA (release, no codesign)
         script: |
-          flutter build ios --release --no-codesign
+          # Produce an unsigned IPA without requiring a Development Team
+          flutter build ipa --no-codesign
     artifacts:
-      - build/ios/Release-iphoneos/Runner.app
-      - build/ios/Release-iphoneos/
+      - build/ios/ipa/*.ipa
 
