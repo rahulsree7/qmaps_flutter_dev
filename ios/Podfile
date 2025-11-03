@@ -9,7 +9,10 @@ use_modular_headers!
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 flutter_root = File.expand_path(File.join('..', 'Flutter'))
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+require File.expand_path(File.join(flutter_root, 'podhelper.rb'))
+
+# Set up Flutter-specific CocoaPods build settings
+flutter_ios_podfile_setup
 
 target 'Runner' do
   flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
