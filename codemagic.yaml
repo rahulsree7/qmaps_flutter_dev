@@ -1,0 +1,96 @@
+workflows:
+  ios-workflow:
+    name: iOS Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.aipopuli.qmaps
+      vars:
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Flutter build ipa
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com  # TODO: Update with your email
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: false
+
+  # Alternative: Development build for testing (No code signing required)
+  ios-debug-workflow:
+    name: iOS Debug Build
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Flutter build iOS (debug)
+        script: |
+          flutter build ios --debug --no-codesign
+    artifacts:
+      - build/ios/Debug-iphoneos/*.app
+
+  # Simple Release Build (No code signing - for testing with AltStore/Sideloadly)
+  ios-simple-release:
+    name: iOS Simple Release Build
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Install pods
+        script: |
+          cd ios
+          pod install
+      - name: Flutter build iOS (release, no codesign)
+        script: |
+          flutter build ios --release --no-codesign
+    artifacts:
+      - build/ios/Release-iphoneos/Runner.app
+      - build/ios/Release-iphoneos/
+
