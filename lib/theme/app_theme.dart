@@ -54,7 +54,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: const CardThemeData(
         color: cardBackground,
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.1),
