@@ -8,8 +8,7 @@ use_modular_headers!
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-flutter_root = File.expand_path(File.join('..', 'Flutter'))
-require File.expand_path(File.join(flutter_root, 'podhelper.rb'))
+require File.expand_path(File.join('Flutter', 'podhelper.rb'))
 
 # Set up Flutter-specific CocoaPods build settings
 flutter_ios_podfile_setup
