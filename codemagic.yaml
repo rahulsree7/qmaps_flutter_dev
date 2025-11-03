@@ -17,12 +17,20 @@ workflows:
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
+      - name: Flutter clean & precache iOS
+        script: |
+          flutter clean
+          flutter precache --ios
       - name: Get Flutter packages
         script: |
           flutter pub get
-      - name: Install pods
+      - name: Reinstall CocoaPods (clean)
         script: |
-          find . -name "Podfile" -execdir pod install \;
+          cd ios
+          pod repo update
+          pod deintegrate
+          pod install
+          cd ..
       - name: Flutter analyze
         script: |
           flutter analyze
@@ -58,12 +66,20 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Flutter clean & precache iOS
+        script: |
+          flutter clean
+          flutter precache --ios
       - name: Get Flutter packages
         script: |
           flutter pub get
-      - name: Install pods
+      - name: Reinstall CocoaPods (clean)
         script: |
-          find . -name "Podfile" -execdir pod install \;
+          cd ios
+          pod repo update
+          pod deintegrate
+          pod install
+          cd ..
       - name: Flutter build iOS (debug, simulator)
         script: |
           # Build for iOS Simulator to avoid code signing
