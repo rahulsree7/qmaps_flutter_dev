@@ -1,44 +1,44 @@
 import 'package:flutter/material.dart';
 import '../../services/task_service.dart';
 
-class TaskDetailPage extends StatefulWidget {
-  final int taskId;
+class TicketDetailPage extends StatefulWidget {
+  final int ticketId;
 
-  const TaskDetailPage({super.key, required this.taskId});
+  const TicketDetailPage({super.key, required this.ticketId});
 
   @override
-  State<TaskDetailPage> createState() => _TaskDetailPageState();
+  State<TicketDetailPage> createState() => _TicketDetailPageState();
 }
 
-class _TaskDetailPageState extends State<TaskDetailPage> {
+class _TicketDetailPageState extends State<TicketDetailPage> {
   bool _isLoading = true;
   bool _isMarkingCompleted = false;
-  Map<String, dynamic>? _taskData;
+  Map<String, dynamic>? _ticketData;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadTaskDetails();
+    _loadTicketDetails();
   }
 
-  Future<void> _loadTaskDetails() async {
+  Future<void> _loadTicketDetails() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final result = await TaskService.getTaskDetails(widget.taskId);
+    final result = await TaskService.getTicketDetails(widget.ticketId);
 
     if (mounted) {
       if (result['success']) {
         setState(() {
-          _taskData = result['data'];
+          _ticketData = result['data'];
           _isLoading = false;
         });
       } else {
         setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load task details';
+          _errorMessage = result['message'] ?? 'Failed to load ticket details';
           _isLoading = false;
         });
       }
@@ -50,24 +50,24 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       _isMarkingCompleted = true;
     });
 
-    final result = await TaskService.markTaskCompleted(widget.taskId);
+    final result = await TaskService.markTicketCompleted(widget.ticketId);
 
     if (mounted) {
       if (result['success']) {
-        // Update the task data with new status
-        if (_taskData != null && result['data'] != null) {
+        // Update the ticket data with new status
+        if (_ticketData != null && result['data'] != null) {
           final newStatus = result['data']['status'];
           setState(() {
-            if (_taskData!['status'] != null) {
-              _taskData!['status']['title'] = newStatus['title'];
-              _taskData!['status']['id'] = newStatus['id'];
+            if (_ticketData!['status'] != null) {
+              _ticketData!['status']['title'] = newStatus['title'];
+              _ticketData!['status']['id'] = newStatus['id'];
             }
           });
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Task marked as completed'),
+            content: Text('Ticket marked as completed'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -81,7 +81,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Failed to mark task as completed'),
+            content: Text(result['message'] ?? 'Failed to mark ticket as completed'),
             backgroundColor: Colors.red,
           ),
         );
@@ -92,16 +92,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       setState(() {
         _isMarkingCompleted = false;
       });
-    }
-  }
-
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '-';
-    try {
-      final date = DateTime.parse(dateStr);
-      return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return dateStr;
     }
   }
 
@@ -185,7 +175,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _loadTaskDetails,
+                onPressed: _loadTicketDetails,
                 child: const Text('Retry'),
               ),
             ],
@@ -194,22 +184,21 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       );
     }
 
-    if (_taskData == null) {
+    if (_ticketData == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Task Details'),
+          title: const Text('Ticket Details'),
         ),
-        body: const Center(child: Text('No task data')),
+        body: const Center(child: Text('No ticket data')),
       );
     }
 
-    final task = _taskData!;
-    final status = task['status'];
-    final priority = task['priority'];
-    final project = task['project'];
-    final users = task['users'] as List? ?? [];
-    final bialUsers = users.where((u) => u['user_type_id'] == 1).toList();
-    final concessionareUsers = users.where((u) => u['user_type_id'] == 2).toList();
+    final ticket = _ticketData!;
+    final status = ticket['status'];
+    final priority = ticket['priority'];
+    final checklist = ticket['checklist'];
+    final question = ticket['question'];
+    final users = ticket['users'] as List? ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -235,7 +224,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           ),
         ),
         title: const Text(
-          'Task Details',
+          'Ticket Details',
           style: TextStyle(
             color: Color(0xFF1A1A1A),
             fontSize: 22,
@@ -249,7 +238,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Task Header Card
+            // Ticket Header Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -280,7 +269,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
-                      Icons.task_alt,
+                      Icons.confirmation_num_outlined,
                       color: Colors.white,
                       size: 24,
                     ),
@@ -291,7 +280,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Task #${task['id']}',
+                          'Ticket #${ticket['id']}',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -301,7 +290,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          task['title'] ?? 'Untitled Task',
+                          ticket['title'] ?? 'Untitled Ticket',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -317,6 +306,120 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // Checklist Section
+            if (checklist != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.checklist,
+                            size: 16,
+                            color: Colors.purple,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Checklist',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      checklist['title'] ?? '-',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+
+            // Question
+            if (question != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.cyan.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.help_outline,
+                            size: 16,
+                            color: Colors.cyan,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Question',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      question['question'] ?? '-',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF1A1A1A),
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
 
             // Status and Priority
             Row(
@@ -462,223 +565,9 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             ),
             const SizedBox(height: 16),
 
-            // Dates
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.calendar_today,
-                          size: 16,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Schedule',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Start Date',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[500],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _formatDate(task['start_date']),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1A1A1A),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Due Date',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[500],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _formatDate(task['due_date']),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1A1A1A),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Project/Location
-            if (project != null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.location_on_outlined,
-                            size: 16,
-                            color: Colors.orange,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Location',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      project['title'] ?? '-',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-
             // Description
-            if (task['description'] != null &&
-                task['description'].toString().isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.description_outlined,
-                            size: 16,
-                            color: Colors.purple,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Description',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      task['description'],
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF1A1A1A),
-                        height: 1.6,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-
-            // BIAL Users
-            if (bialUsers.isNotEmpty)
+            if (ticket['description'] != null &&
+                ticket['description'].toString().isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -704,14 +593,14 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
-                            Icons.people_outline,
+                            Icons.description_outlined,
                             size: 16,
                             color: Colors.blue,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'BIAL Users',
+                          'Description',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -721,41 +610,21 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: bialUsers.map((user) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: const Color(0xFF8B5CF6),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            user['name'],
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF8B5CF6),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                    Text(
+                      ticket['description'],
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF1A1A1A),
+                        height: 1.6,
+                      ),
                     ),
                   ],
                 ),
               ),
             const SizedBox(height: 16),
 
-            // Concessionaire Users
-            if (concessionareUsers.isNotEmpty)
+            // Assigned Users
+            if (users.isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -777,18 +646,18 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
+                            color: const Color(0xFF8B5CF6).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
                             Icons.people_outline,
                             size: 16,
-                            color: Colors.green,
+                            color: Color(0xFF8B5CF6),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Concessionaire Users',
+                          'Assigned To',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -801,25 +670,28 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: concessionareUsers.map((user) {
+                      children: users.map((user) {
+                        final firstName = user['first_name'] ?? '';
+                        final lastName = user['last_name'] ?? '';
+                        final name = '$firstName $lastName'.trim();
                         return Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
+                            color: const Color(0xFF8B5CF6).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: Colors.green,
+                              color: const Color(0xFF8B5CF6),
                               width: 1,
                             ),
                           ),
                           child: Text(
-                            user['name'],
-                            style: TextStyle(
+                            name,
+                            style: const TextStyle(
                               fontSize: 13,
-                              color: Colors.green[700],
+                              color: Color(0xFF8B5CF6),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -905,4 +777,3 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     );
   }
 }
-

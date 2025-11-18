@@ -8,6 +8,7 @@ import 'services/auth_service.dart';
 import 'screens/checklist/checklists_page.dart';
 import 'screens/tasks/location_input_page.dart';
 import 'screens/tasks/tasks_list_page.dart';
+import 'screens/tickets/tickets_list_page.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -42,6 +43,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/checklists': (context) => const ChecklistsPage(),
         '/tasks': (context) => const TasksListPage(),
+        '/tickets': (context) => const TicketsListPage(),
         '/location-input': (context) => const LocationInputPage(),
       },
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import '../services/task_service.dart';
 import '../theme/app_theme.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,6 +20,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late Animation<Offset> _slideAnimation;
   String _userName = '';
   String _userEmail = '';
+  int _pendingTasks = 0;
+  int _completedTasks = 0;
+  int _pendingTickets = 0;
+  int _completedTickets = 0;
 
   @override
   void initState() {
@@ -47,6 +52,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _fadeController.forward();
     _slideController.forward();
     _loadUserData();
+    _loadSummaryData();
   }
 
   Future<void> _loadUserData() async {
@@ -56,6 +62,74 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         _userName = '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'.trim();
         _userEmail = userData['email'] ?? '';
       });
+    }
+  }
+
+  Future<void> _loadSummaryData() async {
+    try {
+      final tasksResult = await TaskService.getUserTasks();
+      final ticketsResult = await TaskService.getUserTickets();
+
+      print('Summary Data - Tasks Result: $tasksResult');
+      print('Summary Data - Tickets Result: $ticketsResult');
+
+      if (mounted) {
+        setState(() {
+          if (tasksResult['success']) {
+            final tasks = List<Map<String, dynamic>>.from(tasksResult['data'] ?? []);
+            print('Total tasks fetched: ${tasks.length}');
+            _pendingTasks = tasks
+                .where((task) {
+                  final status = task['status'];
+                  return status != null &&
+                      status['title'].toLowerCase() != 'completed' &&
+                      status['title'].toLowerCase() != 'done' &&
+                      status['title'].toLowerCase() != 'closed';
+                })
+                .length;
+            _completedTasks = tasks
+                .where((task) {
+                  final status = task['status'];
+                  return status != null &&
+                      (status['title'].toLowerCase() == 'completed' ||
+                          status['title'].toLowerCase() == 'done' ||
+                          status['title'].toLowerCase() == 'closed');
+                })
+                .length;
+            print('Pending: $_pendingTasks, Completed: $_completedTasks');
+          } else {
+            print('Tasks fetch failed: ${tasksResult['message']}');
+          }
+
+          if (ticketsResult['success']) {
+            final tickets = List<Map<String, dynamic>>.from(ticketsResult['data'] ?? []);
+            print('Total tickets fetched: ${tickets.length}');
+            _pendingTickets = tickets
+                .where((ticket) {
+                  final status = ticket['status'];
+                  return status != null &&
+                      status['title'].toLowerCase() != 'completed' &&
+                      status['title'].toLowerCase() != 'done' &&
+                      status['title'].toLowerCase() != 'closed';
+                })
+                .length;
+            _completedTickets = tickets
+                .where((ticket) {
+                  final status = ticket['status'];
+                  return status != null &&
+                      (status['title'].toLowerCase() == 'completed' ||
+                          status['title'].toLowerCase() == 'done' ||
+                          status['title'].toLowerCase() == 'closed');
+                })
+                .length;
+            print('Pending Tickets: $_pendingTickets, Completed Tickets: $_completedTickets');
+          } else {
+            print('Tickets fetch failed: ${ticketsResult['message']}');
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading summary data: $e');
     }
   }
 
@@ -317,13 +391,38 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Welcome Message',
+          'Summary',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
             letterSpacing: 0.5,
           ),
+        ),
+        const SizedBox(height: 16),
+        // Tasks and Tickets Summary Grid
+        Row(
+          children: [
+            Expanded(
+              child: _buildSummaryCard(
+                title: 'Tasks',
+                pending: _pendingTasks,
+                completed: _completedTasks,
+                icon: Icons.task_alt_rounded,
+                color: const Color(0xFF8B5CF6),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSummaryCard(
+                title: 'Tickets',
+                pending: _pendingTickets,
+                completed: _completedTickets,
+                icon: Icons.confirmation_num_rounded,
+                color: const Color(0xFF3B82F6),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         Container(
@@ -361,7 +460,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  '📋 Task Summary',
+                  '📋 Quick Access',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -371,7 +470,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Listing the pending task assigned',
+                'View your pending tasks and tickets',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -388,7 +487,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
-                  'Tap to view details',
+                  'Tap to view all',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white70,
@@ -399,6 +498,121 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSummaryCard({
+    required String title,
+    required int pending,
+    required int completed,
+    required IconData icon,
+    required Color color,
+  }) {
+    final total = pending + completed;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with icon
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Total count
+          Text(
+            total.toString(),
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Pending and Completed breakdown
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pending.toString(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.orange,
+                    ),
+                  ),
+                  Text(
+                    'Pending',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                width: 1,
+                height: 30,
+                color: Colors.grey[200],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    completed.toString(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green,
+                    ),
+                  ),
+                  Text(
+                    'Completed',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -485,7 +699,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             const SizedBox(width: 12),
             Expanded(child: _buildFeatureButton('Tasks', Icons.task_alt)),
             const SizedBox(width: 12),
-            Expanded(child: _buildFeatureButton('Users', Icons.people)),
+            Expanded(child: _buildFeatureButton('Tickets', Icons.confirmation_num_outlined)),
           ],
         ),
         const SizedBox(height: 12),
@@ -532,6 +746,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Navigator.pushNamed(context, '/checklists');
             } else if (title.toLowerCase().contains('tasks')) {
               Navigator.pushNamed(context, '/tasks');
+            } else if (title.toLowerCase().contains('tickets')) {
+              Navigator.pushNamed(context, '/tickets');
             }
           },
           child: Container(

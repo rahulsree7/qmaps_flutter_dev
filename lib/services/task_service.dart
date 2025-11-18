@@ -253,6 +253,248 @@ class TaskService {
     }
   }
 
+  // Get all tickets assigned to the user
+  static Future<Map<String, dynamic>> getUserTickets() async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+        };
+      }
+
+      print('Debug - TaskService.getUserTickets: Fetching user tickets');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/user/tickets'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Debug - TaskService.getUserTickets: Response status: ${response.statusCode}');
+      print('Debug - TaskService.getUserTickets: Response body length: ${response.body.length}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Debug - TaskService.getUserTickets: Tickets count: ${data['count']}');
+        return {
+          'success': true,
+          'data': data['data'] ?? [],
+          'count': data['count'] ?? 0,
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Not authenticated. Please login again.',
+        };
+      } else {
+        try {
+          final error = jsonDecode(response.body);
+          return {
+            'success': false,
+            'message': error['message'] ?? 'Failed to fetch tickets',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Failed to fetch tickets (HTTP ${response.statusCode})',
+          };
+        }
+      }
+    } catch (e) {
+      print('Debug - TaskService.getUserTickets: Exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Get ticket details by ID
+  static Future<Map<String, dynamic>> getTicketDetails(int ticketId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+        };
+      }
+
+      print('Debug - TaskService.getTicketDetails: Fetching ticket $ticketId');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/tickets/$ticketId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Debug - TaskService.getTicketDetails: Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'data': data['data'],
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Not authenticated. Please login again.',
+        };
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'message': 'Ticket not found',
+        };
+      } else {
+        try {
+          final error = jsonDecode(response.body);
+          return {
+            'success': false,
+            'message': error['message'] ?? 'Failed to fetch ticket',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Failed to fetch ticket (HTTP ${response.statusCode})',
+          };
+        }
+      }
+    } catch (e) {
+      print('Debug - TaskService.getTicketDetails: Exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Mark task as completed
+  static Future<Map<String, dynamic>> markTaskCompleted(int taskId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+        };
+      }
+
+      print('Debug - TaskService.markTaskCompleted: Marking task $taskId as completed');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/tasks/$taskId/mark-completed'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Debug - TaskService.markTaskCompleted: Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Task marked as completed',
+          'data': data['data'],
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Not authenticated. Please login again.',
+        };
+      } else {
+        try {
+          final error = jsonDecode(response.body);
+          return {
+            'success': false,
+            'message': error['message'] ?? 'Failed to mark task as completed',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Failed to mark task as completed (HTTP ${response.statusCode})',
+          };
+        }
+      }
+    } catch (e) {
+      print('Debug - TaskService.markTaskCompleted: Exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Mark ticket as completed
+  static Future<Map<String, dynamic>> markTicketCompleted(int ticketId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+        };
+      }
+
+      print('Debug - TaskService.markTicketCompleted: Marking ticket $ticketId as completed');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/tickets/$ticketId/mark-completed'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Debug - TaskService.markTicketCompleted: Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Ticket marked as completed',
+          'data': data['data'],
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Not authenticated. Please login again.',
+        };
+      } else {
+        try {
+          final error = jsonDecode(response.body);
+          return {
+            'success': false,
+            'message': error['message'] ?? 'Failed to mark ticket as completed',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Failed to mark ticket as completed (HTTP ${response.statusCode})',
+          };
+        }
+      }
+    } catch (e) {
+      print('Debug - TaskService.markTicketCompleted: Exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
   // Create a new task
   static Future<Map<String, dynamic>> createTask(Map<String, dynamic> taskData) async {
     try {

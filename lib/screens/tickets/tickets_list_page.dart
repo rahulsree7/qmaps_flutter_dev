@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/task_service.dart';
-import 'task_detail_page.dart';
+import 'ticket_detail_page.dart';
 
 extension StringCapitalization on String {
   String capitalize() {
@@ -8,18 +8,18 @@ extension StringCapitalization on String {
   }
 }
 
-class TasksListPage extends StatefulWidget {
-  const TasksListPage({super.key});
+class TicketsListPage extends StatefulWidget {
+  const TicketsListPage({super.key});
 
   @override
-  State<TasksListPage> createState() => _TasksListPageState();
+  State<TicketsListPage> createState() => _TicketsListPageState();
 }
 
-class _TasksListPageState extends State<TasksListPage>
+class _TicketsListPageState extends State<TicketsListPage>
     with TickerProviderStateMixin {
   bool _isLoading = true;
-  List<Map<String, dynamic>> _tasks = [];
-  List<Map<String, dynamic>> _filteredTasks = [];
+  List<Map<String, dynamic>> _tickets = [];
+  List<Map<String, dynamic>> _filteredTickets = [];
   String? _errorMessage;
   String _selectedFilter = 'all';
   late AnimationController _fadeController;
@@ -35,7 +35,7 @@ class _TasksListPageState extends State<TasksListPage>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
-    _loadTasks();
+    _loadTickets();
   }
 
   @override
@@ -44,7 +44,7 @@ class _TasksListPageState extends State<TasksListPage>
     super.dispose();
   }
 
-  Future<void> _loadTasks() async {
+  Future<void> _loadTickets() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -52,19 +52,19 @@ class _TasksListPageState extends State<TasksListPage>
 
     _fadeController.reset();
 
-    final result = await TaskService.getUserTasks();
+    final result = await TaskService.getUserTickets();
 
     if (mounted) {
       if (result['success']) {
         setState(() {
-          _tasks = List<Map<String, dynamic>>.from(result['data'] ?? []);
+          _tickets = List<Map<String, dynamic>>.from(result['data'] ?? []);
           _applyFilter();
           _isLoading = false;
         });
         _fadeController.forward();
       } else {
         setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load tasks';
+          _errorMessage = result['message'] ?? 'Failed to load tickets';
           _isLoading = false;
         });
       }
@@ -74,18 +74,18 @@ class _TasksListPageState extends State<TasksListPage>
   void _applyFilter() {
     setState(() {
       if (_selectedFilter == 'all') {
-        _filteredTasks = _tasks;
+        _filteredTickets = _tickets;
       } else if (_selectedFilter == 'pending') {
-        _filteredTasks = _tasks.where((task) {
-          final status = task['status'];
+        _filteredTickets = _tickets.where((ticket) {
+          final status = ticket['status'];
           return status != null &&
               status['title'].toLowerCase() != 'completed' &&
               status['title'].toLowerCase() != 'done' &&
               status['title'].toLowerCase() != 'closed';
         }).toList();
       } else if (_selectedFilter == 'completed') {
-        _filteredTasks = _tasks.where((task) {
-          final status = task['status'];
+        _filteredTickets = _tickets.where((ticket) {
+          final status = ticket['status'];
           return status != null &&
               (status['title'].toLowerCase() == 'completed' ||
                   status['title'].toLowerCase() == 'done' ||
@@ -93,37 +93,6 @@ class _TasksListPageState extends State<TasksListPage>
         }).toList();
       }
     });
-  }
-
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '-';
-    try {
-      final date = DateTime.parse(dateStr);
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final yesterday = today.subtract(const Duration(days: 1));
-      final taskDate = DateTime(date.year, date.month, date.day);
-
-      if (taskDate == today) {
-        return 'Today';
-      } else if (taskDate == yesterday) {
-        return 'Yesterday';
-      } else {
-        return '${date.day}/${date.month}/${date.year}';
-      }
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
-  bool _isOverdue(String? dateStr) {
-    if (dateStr == null) return false;
-    try {
-      final date = DateTime.parse(dateStr);
-      return date.isBefore(DateTime.now());
-    } catch (e) {
-      return false;
-    }
   }
 
   Color _getColorFromString(String colorName) {
@@ -239,14 +208,14 @@ class _TasksListPageState extends State<TasksListPage>
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Icon(
-                                  Icons.task_alt_rounded,
+                                  Icons.confirmation_num_rounded,
                                   color: Colors.white.withOpacity(0.9),
                                   size: 28,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'My Tasks',
+                                    'My Tickets',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 28,
@@ -256,7 +225,7 @@ class _TasksListPageState extends State<TasksListPage>
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                if (!_isLoading && _tasks.isNotEmpty)
+                                if (!_isLoading && _tickets.isNotEmpty)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
@@ -281,13 +250,13 @@ class _TasksListPageState extends State<TasksListPage>
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
-                                          Icons.check_circle_outline_rounded,
+                                          Icons.confirmation_num_rounded,
                                           color: Colors.white,
                                           size: 16,
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
-                                          _tasks.length.toString(),
+                                          _tickets.length.toString(),
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 15,
@@ -302,7 +271,7 @@ class _TasksListPageState extends State<TasksListPage>
                             ),
                             const SizedBox(height: 8),
                             // Subtitle with status
-                            if (!_isLoading && _tasks.isNotEmpty)
+                            if (!_isLoading && _tickets.isNotEmpty)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
@@ -335,7 +304,7 @@ class _TasksListPageState extends State<TasksListPage>
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      '${_filteredTasks.length} showing',
+                                      '${_filteredTickets.length} showing',
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.9),
                                         fontSize: 13,
@@ -390,11 +359,16 @@ class _TasksListPageState extends State<TasksListPage>
           : _errorMessage != null
               ? _buildErrorState()
               : RefreshIndicator(
-                  onRefresh: _loadTasks,
+                  onRefresh: _loadTickets,
                   color: const Color(0xFF8B5CF6),
-                  child: _filteredTasks.isEmpty
-                      ? _buildEmptyState()
-                      : _buildTasksList(),
+                  child: _filteredTickets.isEmpty
+                      ? Column(
+                          children: [
+                            _buildFilterContainer(),
+                            Expanded(child: _buildEmptyState()),
+                          ],
+                        )
+                      : _buildTicketsList(),
                 ),
     );
   }
@@ -494,7 +468,7 @@ class _TasksListPageState extends State<TasksListPage>
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _loadTasks,
+              onPressed: _loadTickets,
               icon: const Icon(Icons.refresh),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
@@ -515,83 +489,111 @@ class _TasksListPageState extends State<TasksListPage>
     );
   }
 
+  Widget _buildFilterContainer() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F6FF).withOpacity(0.8),
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFF8B5CF6).withOpacity(0.08),
+            width: 1,
+          ),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            _buildFilterChip('all', 'All'),
+            const SizedBox(width: 10),
+            _buildFilterChip('pending', 'Pending'),
+            const SizedBox(width: 10),
+            _buildFilterChip('completed', 'Completed'),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height - 200,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Icon(
-                    Icons.task_alt,
-                    size: 50,
-                    color: const Color(0xFF8B5CF6).withOpacity(0.7),
-                  ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  _selectedFilter == 'all'
-                      ? 'No tasks yet'
-                      : _selectedFilter == 'completed'
-                          ? 'No completed tasks'
-                          : 'No pending tasks',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
-                  ),
+                child: Icon(
+                  Icons.confirmation_num_outlined,
+                  size: 50,
+                  color: const Color(0xFF8B5CF6).withOpacity(0.7),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _selectedFilter == 'all'
-                      ? 'All your tasks will appear here'
-                      : _selectedFilter == 'completed'
-                          ? 'Keep completing tasks to see them here!'
-                          : 'All your tasks are completed! 🎉',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _selectedFilter == 'all'
+                    ? 'No tickets yet'
+                    : _selectedFilter == 'completed'
+                        ? 'No completed tickets'
+                        : 'No pending tickets',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A1A),
                 ),
-                if (_selectedFilter != 'all')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: ElevatedButton(
-                      onPressed: () {
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _selectedFilter == 'all'
+                    ? 'All your tickets will appear here'
+                    : _selectedFilter == 'completed'
+                        ? 'Keep resolving tickets to see them here!'
+                        : 'All your tickets are completed! 🎉',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              if (_selectedFilter != 'all')
+                Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
                         _selectedFilter = 'all';
                         _applyFilter();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B5CF6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 10,
-                        ),
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B5CF6),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 10,
                       ),
-                      child: const Text('View All Tasks'),
                     ),
+                    child: const Text('View All Tickets'),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTasksList() {
+  Widget _buildTicketsList() {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Column(
@@ -623,14 +625,14 @@ class _TasksListPageState extends State<TasksListPage>
               ),
             ),
           ),
-          // Tasks list
+          // Tickets list
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _filteredTasks.length,
+              itemCount: _filteredTickets.length,
               itemBuilder: (context, index) {
-                final task = _filteredTasks[index];
-                return _buildTaskCard(context, task, index);
+                final ticket = _filteredTickets[index];
+                return _buildTicketCard(context, ticket, index);
               },
             ),
           ),
@@ -722,13 +724,11 @@ class _TasksListPageState extends State<TasksListPage>
     );
   }
 
-  Widget _buildTaskCard(
-      BuildContext context, Map<String, dynamic> task, int index) {
-    final status = task['status'];
-    final priority = task['priority'];
-    final isOverdue = _isOverdue(task['due_date']);
-    final isUrgent = priority != null &&
-        priority['title'].toLowerCase() == 'urgent';
+  Widget _buildTicketCard(
+      BuildContext context, Map<String, dynamic> ticket, int index) {
+    final status = ticket['status'];
+    final priority = ticket['priority'];
+    final checklist = ticket['checklist'];
 
     return AnimatedOpacity(
       opacity: 1.0,
@@ -744,19 +744,7 @@ class _TasksListPageState extends State<TasksListPage>
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
-            if (isOverdue)
-              BoxShadow(
-                color: Colors.red.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
           ],
-          border: isOverdue
-              ? Border.all(
-                  color: Colors.red.withOpacity(0.4),
-                  width: 1.5,
-                )
-              : null,
         ),
         child: Material(
           color: Colors.transparent,
@@ -767,7 +755,7 @@ class _TasksListPageState extends State<TasksListPage>
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) {
-                    return TaskDetailPage(taskId: task['id']);
+                    return TicketDetailPage(ticketId: ticket['id']);
                   },
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
@@ -808,7 +796,7 @@ class _TasksListPageState extends State<TasksListPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              task['title'] ?? 'Untitled',
+                              ticket['title'] ?? 'Untitled Ticket',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -818,7 +806,7 @@ class _TasksListPageState extends State<TasksListPage>
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (task['project'] != null)
+                            if (checklist != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 6),
                                 child: Container(
@@ -832,7 +820,7 @@ class _TasksListPageState extends State<TasksListPage>
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    task['project']['title'] ?? '',
+                                    checklist['title'] ?? '',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: const Color(0xFF8B5CF6),
@@ -846,31 +834,30 @@ class _TasksListPageState extends State<TasksListPage>
                           ],
                         ),
                       ),
-                      if (isUrgent)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.red.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.local_fire_department_rounded,
-                            size: 16,
-                            color: Colors.red,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF8B5CF6).withOpacity(0.25),
+                            width: 1,
                           ),
                         ),
+                        child: const Icon(
+                          Icons.confirmation_num_rounded,
+                          size: 16,
+                          color: Color(0xFF8B5CF6),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
 
-                  // Status, Priority and Date chips
+                  // Status, Priority and info chips
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -948,36 +935,31 @@ class _TasksListPageState extends State<TasksListPage>
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              (isOverdue ? Colors.red : Colors.blue)
-                                  .withOpacity(0.12),
-                              (isOverdue ? Colors.red : Colors.blue)
-                                  .withOpacity(0.06),
+                              Colors.blue.withOpacity(0.12),
+                              Colors.blue.withOpacity(0.06),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: (isOverdue ? Colors.red : Colors.blue)
-                                .withOpacity(0.2),
+                            color: Colors.blue.withOpacity(0.2),
                             width: 1,
                           ),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              isOverdue
-                                  ? Icons.schedule_rounded
-                                  : Icons.calendar_today_rounded,
+                              Icons.info_outline_rounded,
                               size: 12,
-                              color: isOverdue ? Colors.red : Colors.blue,
+                              color: Colors.blue,
                             ),
-                            const SizedBox(width: 5),
+                            SizedBox(width: 5),
                             Text(
-                              _formatDate(task['due_date']),
+                              'View Details',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: isOverdue ? Colors.red : Colors.blue,
+                                color: Colors.blue,
                                 letterSpacing: -0.2,
                               ),
                             ),
@@ -988,7 +970,7 @@ class _TasksListPageState extends State<TasksListPage>
                   ),
 
                   // Bottom - Users and arrow
-                  if ((task['users'] as List?)?.isNotEmpty ?? false)
+                  if ((ticket['users'] as List?)?.isNotEmpty ?? false)
                     Padding(
                       padding: const EdgeInsets.only(top: 14),
                       child: Row(
@@ -998,7 +980,7 @@ class _TasksListPageState extends State<TasksListPage>
                               height: 32,
                               child: Stack(
                                 children: [
-                                  ..._buildUserAvatars(task),
+                                  ..._buildUserAvatars(ticket),
                                 ],
                               ),
                             ),
@@ -1032,12 +1014,11 @@ class _TasksListPageState extends State<TasksListPage>
     );
   }
 
-  List<Widget> _buildUserAvatars(Map<String, dynamic> task) {
-    final users = (task['users'] as List?) ?? [];
+  List<Widget> _buildUserAvatars(Map<String, dynamic> ticket) {
+    final users = (ticket['users'] as List?) ?? [];
     final displayCount = users.length > 3 ? 3 : users.length;
     final widgets = <Widget>[];
 
-    // Add avatars for first 3 users
     for (int i = 0; i < displayCount; i++) {
       final user = users[i];
       final firstName = user['first_name'] ?? '';
@@ -1049,8 +1030,8 @@ class _TasksListPageState extends State<TasksListPage>
         Positioned(
           left: i * 16.0,
           child: Container(
-            width: 28,
-            height: 28,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -1070,7 +1051,7 @@ class _TasksListPageState extends State<TasksListPage>
               child: Text(
                 initial,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
@@ -1081,14 +1062,13 @@ class _TasksListPageState extends State<TasksListPage>
       );
     }
 
-    // Add +N badge if more than 3 users
     if (users.length > 3) {
       widgets.add(
         Positioned(
           left: 3 * 16.0,
           child: Container(
-            width: 28,
-            height: 28,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -1101,7 +1081,7 @@ class _TasksListPageState extends State<TasksListPage>
               child: Text(
                 '+${users.length - 3}',
                 style: const TextStyle(
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1A1A1A),
                 ),
@@ -1115,3 +1095,4 @@ class _TasksListPageState extends State<TasksListPage>
     return widgets;
   }
 }
+
