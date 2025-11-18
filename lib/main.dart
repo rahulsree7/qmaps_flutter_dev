@@ -6,7 +6,8 @@ import 'screens/auth/pin_login_page.dart';
 import 'screens/home_page.dart';
 import 'services/auth_service.dart';
 import 'screens/checklist/checklists_page.dart';
-import 'screens/tasks/qr_scanner_page.dart';
+import 'screens/tasks/location_input_page.dart';
+import 'screens/tasks/tasks_list_page.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -40,7 +41,8 @@ class MyApp extends StatelessWidget {
         '/pin-login': (context) => const PinLoginPage(),
         '/home': (context) => const HomePage(),
         '/checklists': (context) => const ChecklistsPage(),
-        '/qr-scanner': (context) => const QRScannerPage(),
+        '/tasks': (context) => const TasksListPage(),
+        '/location-input': (context) => const LocationInputPage(),
       },
     );
   }

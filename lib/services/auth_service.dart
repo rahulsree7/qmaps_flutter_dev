@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = 'https://stageqmaps.aipopuli.com';
+  //static const String baseUrl = 'https://stageqmaps.aipopuli.com';
 
-  //static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = 'http://127.0.0.1:8000';
   
   // Email/Password Login API
   static Future<Map<String, dynamic>> loginWithEmailPassword({

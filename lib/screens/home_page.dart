@@ -530,6 +530,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           onTap: () {
             if (title.toLowerCase().contains('checklist')) {
               Navigator.pushNamed(context, '/checklists');
+            } else if (title.toLowerCase().contains('tasks')) {
+              Navigator.pushNamed(context, '/tasks');
             }
           },
           child: Container(
@@ -786,8 +788,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
       child: FloatingActionButton.extended(
         onPressed: () {
-          // Navigate to QR scanner page
-          Navigator.pushNamed(context, '/qr-scanner');
+          // Navigate to location input page
+          Navigator.pushNamed(context, '/location-input');
         },
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF8B5CF6),
@@ -803,13 +805,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(6),
           ),
           child: const Icon(
-            Icons.qr_code_scanner,
+            Icons.add,
             size: 16,
             color: Color(0xFF8B5CF6),
           ),
         ),
         label: const Text(
-          'Scan QR Code',
+          'Add Task',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
