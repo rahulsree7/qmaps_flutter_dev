@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/task_service.dart';
 import '../theme/app_theme.dart';
+import 'checklist/checklist_qr_scanner_page.dart';
+import 'tasks/qr_scanner_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,6 +26,114 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _completedTasks = 0;
   int _pendingTickets = 0;
   int _completedTickets = 0;
+  
+  void _showAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Add Checklist option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3182CE).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.assignment_outlined,
+                  color: Color(0xFF3182CE),
+                  size: 24,
+                ),
+              ),
+              title: const Text(
+                'Add Checklist',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: const Text(
+                'Create a new checklist',
+                style: TextStyle(fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _handleAddChecklist();
+              },
+            ),
+            const SizedBox(height: 12),
+            // Add Task option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.check_circle_outline,
+                  color: Color(0xFFF59E0B),
+                  size: 24,
+                ),
+              ),
+              title: const Text(
+                'Add Task',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: const Text(
+                'Create a new task',
+                style: TextStyle(fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _handleAddTask();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _handleAddChecklist() {
+    // Navigate to QR scanner for checklist
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ChecklistQRScannerPage(),
+      ),
+    );
+  }
+  
+  void _handleAddTask() {
+    // Navigate to QR scanner for task
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const QRScannerPage(),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -988,7 +1098,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget _buildFloatingActionButton() {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF8B5CF6).withOpacity(0.3),
@@ -1002,36 +1112,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         ],
       ),
-      child: FloatingActionButton.extended(
-        onPressed: () {
-          // Navigate to location input page
-          Navigator.pushNamed(context, '/location-input');
-        },
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF8B5CF6),
+      child: FloatingActionButton(
+        onPressed: _showAddMenu,
+        backgroundColor: const Color(0xFF8B5CF6),
+        foregroundColor: Colors.white,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        icon: Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: const Color(0xFF8B5CF6).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: const Icon(
-            Icons.add,
-            size: 16,
-            color: Color(0xFF8B5CF6),
-          ),
-        ),
-        label: const Text(
-          'Add Task',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
+        shape: const CircleBorder(),
+        child: const Icon(
+          Icons.add,
+          size: 28,
         ),
       ),
     );
