@@ -657,7 +657,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           child: SizedBox(
             width: double.infinity,
             child: Container(
-              decoration: AppTheme.primaryGradient,
+              decoration: AppTheme.primaryGradientDecoration,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _login,
                 style: ElevatedButton.styleFrom(

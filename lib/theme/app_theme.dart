@@ -1,17 +1,33 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Color Palette from the design reference
-  static const Color primaryRed = Color(0xFFFF5722); // Red/Orange accent
-  static const Color primaryPurple = Color(0xFF6200EE); // Purple accent
-  static const Color darkPurple = Color(0xFF4A148C);
-  static const Color lightPurple = Color(0xFF9C27B0);
+  // Modern Color Palette
+  static const Color primaryBlue = Color(0xFF3B82F6); // Bright Blue
+  static const Color primaryPurple = Color(0xFF8B5CF6); // Violet
+  static const Color darkPurple = Color(0xFF6D28D9); // Dark Violet
+  static const Color accentTeal = Color(0xFF10B981); // Emerald
+  static const Color accentOrange = Color(0xFFF59E0B); // Amber
+  static const Color accentRed = Color(0xFFEF4444); // Red
+  static const Color primaryRed = Color(0xFFDC2626); // Primary Red
+  
+  // Gradients
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)], // Indigo to Violet
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient cardGradient = LinearGradient(
+    colors: [Colors.white, Color(0xFFF8FAFC)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
   
   // Neutral colors
-  static const Color darkBackground = Color(0xFF121212);
-  static const Color lightBackground = Color(0xFFFFFFFF);
-  static const Color cardBackground = Color(0xFFFFFFFF);
-  static const Color surfaceColor = Color(0xFFF5F5F5);
+  static const Color darkBackground = Color(0xFF0F172A); // Slate 900
+  static const Color lightBackground = Color(0xFFF1F5F9); // Slate 100
+  static const Color cardBackground = Colors.white;
+  static const Color surfaceColor = Color(0xFFF8FAFC); // Slate 50
   
   // Text colors
   static const Color textPrimary = Color(0xFF212121);
@@ -212,7 +228,7 @@ class AppTheme {
   }
 
   // Custom gradient decorations
-  static BoxDecoration get primaryGradient {
+  static BoxDecoration get primaryGradientDecoration {
     return BoxDecoration(
       gradient: const LinearGradient(
         colors: [primaryRed, Color(0xFFE64A19)],

@@ -372,71 +372,71 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
       print('Summary Data - Tasks Result: $tasksResult');
       print('Summary Data - Tickets Result: $ticketsResult');
 
-    if (mounted) {
-      setState(() {
-        if (tasksResult['success']) {
-          final tasks = List<Map<String, dynamic>>.from(tasksResult['data'] ?? []);
-          print('Total tasks fetched: ${tasks.length}');
+      if (mounted) {
+        setState(() {
+          if (tasksResult['success']) {
+            final tasks = List<Map<String, dynamic>>.from(tasksResult['data'] ?? []);
+            print('Total tasks fetched: ${tasks.length}');
           _totalTasks = tasks.length;
-          _pendingTasks = tasks
-              .where((task) {
-                final status = task['status'];
-                return status != null &&
-                    status['title'].toLowerCase() != 'completed' &&
-                    status['title'].toLowerCase() != 'done' &&
-                    status['title'].toLowerCase() != 'closed';
-              })
-              .length;
-          _completedTasks = tasks
-              .where((task) {
-                final status = task['status'];
-                return status != null &&
-                    (status['title'].toLowerCase() == 'completed' ||
-                        status['title'].toLowerCase() == 'done' ||
-                        status['title'].toLowerCase() == 'closed');
-              })
-              .length;
+            _pendingTasks = tasks
+                .where((task) {
+                  final status = task['status'];
+                  return status != null &&
+                      status['title'].toLowerCase() != 'completed' &&
+                      status['title'].toLowerCase() != 'done' &&
+                      status['title'].toLowerCase() != 'closed';
+                })
+                .length;
+            _completedTasks = tasks
+                .where((task) {
+                  final status = task['status'];
+                  return status != null &&
+                      (status['title'].toLowerCase() == 'completed' ||
+                          status['title'].toLowerCase() == 'done' ||
+                          status['title'].toLowerCase() == 'closed');
+                })
+                .length;
           _otherTasks = _totalTasks - _pendingTasks - _completedTasks;
           if (_otherTasks < 0) _otherTasks = 0;
           print('Pending: $_pendingTasks, Completed: $_completedTasks, Other: $_otherTasks');
-        } else {
-          print('Tasks fetch failed: ${tasksResult['message']}');
-        }
+          } else {
+            print('Tasks fetch failed: ${tasksResult['message']}');
+          }
 
-        if (ticketsResult['success']) {
-          final tickets = List<Map<String, dynamic>>.from(ticketsResult['data'] ?? []);
-          print('Total tickets fetched: ${tickets.length}');
+          if (ticketsResult['success']) {
+            final tickets = List<Map<String, dynamic>>.from(ticketsResult['data'] ?? []);
+            print('Total tickets fetched: ${tickets.length}');
           _totalTickets = tickets.length;
-          _pendingTickets = tickets
-              .where((ticket) {
-                final status = ticket['status'];
-                return status != null &&
-                    status['title'].toLowerCase() != 'completed' &&
-                    status['title'].toLowerCase() != 'done' &&
-                    status['title'].toLowerCase() != 'closed';
-              })
-              .length;
-          _completedTickets = tickets
-              .where((ticket) {
-                final status = ticket['status'];
-                return status != null &&
-                    (status['title'].toLowerCase() == 'completed' ||
-                        status['title'].toLowerCase() == 'done' ||
-                        status['title'].toLowerCase() == 'closed');
-              })
-              .length;
+            _pendingTickets = tickets
+                .where((ticket) {
+                  final status = ticket['status'];
+                  return status != null &&
+                      status['title'].toLowerCase() != 'completed' &&
+                      status['title'].toLowerCase() != 'done' &&
+                      status['title'].toLowerCase() != 'closed';
+                })
+                .length;
+            _completedTickets = tickets
+                .where((ticket) {
+                  final status = ticket['status'];
+                  return status != null &&
+                      (status['title'].toLowerCase() == 'completed' ||
+                          status['title'].toLowerCase() == 'done' ||
+                          status['title'].toLowerCase() == 'closed');
+                })
+                .length;
           _otherTickets = _totalTickets - _pendingTickets - _completedTickets;
           if (_otherTickets < 0) {
             _otherTickets = 0;
           }
           print('Pending Tickets: $_pendingTickets, Completed Tickets: $_completedTickets, Other: $_otherTickets');
-        } else {
-          print('Tickets fetch failed: ${ticketsResult['message']}');
-        }
+          } else {
+            print('Tickets fetch failed: ${ticketsResult['message']}');
+          }
         _refreshDonutReport();
-      });
-    }
-  } catch (e) {
+        });
+      }
+    } catch (e) {
       print('Error loading summary data: $e');
     }
   }
@@ -796,35 +796,35 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
+          Row(
+            children: [
+              Container(
                     padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, color: color, size: 18),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                ],
-              ),
-              // Total count on the right
-              Text(
-                total.toString(),
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: color,
                 ),
+                    child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                      fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+            ],
+          ),
+              // Total count on the right
+          Text(
+            total.toString(),
+            style: TextStyle(
+                  fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
               ),
             ],
           ),
@@ -1023,45 +1023,45 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
       onTap: onTap,
       child: Container(
         height: 120,
-        decoration: BoxDecoration(
+      decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withOpacity(0.15), width: 1.5),
-          boxShadow: [
-            BoxShadow(
+        boxShadow: [
+          BoxShadow(
               color: color.withOpacity(0.1),
               blurRadius: 12,
               offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
+          ),
+        ],
+      ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
               width: 50,
               height: 50,
-              decoration: BoxDecoration(
+                  decoration: BoxDecoration(
                 color: color.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
+                  ),
+                  child: Icon(
+                    icon,
                 size: 26,
                 color: color,
-              ),
-            ),
+                  ),
+                ),
             const SizedBox(height: 12),
             Text(
-              title,
+                    title,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1162,28 +1162,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
             children: [
-              Container(
-                width: 8,
-                height: 8,
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
                 decoration: BoxDecoration(
                   color: primaryColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
@@ -1278,8 +1278,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
         foregroundColor: Colors.white,
         elevation: 0,
         shape: const CircleBorder(),
-        child: const Icon(
-          Icons.add,
+          child: const Icon(
+            Icons.add,
           size: 28,
         ),
       ),
@@ -1928,7 +1928,7 @@ class WaveChartPainter extends CustomPainter {
     }
     path.lineTo(size.width, size.height);
     path.close();
-
+    
     canvas.drawPath(path, paint);
     canvas.drawPath(path, strokePaint);
   }

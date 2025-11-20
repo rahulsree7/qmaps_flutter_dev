@@ -82,8 +82,32 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
           }
         }
         
-        // Add to completed score if answered
-        if (hasAnswer) {
+        // Check if question is locked (disabled) - locked questions count as completed
+        bool isLocked = false;
+        final isChecklistCompleted = _isChecklistCompleted();
+        if (isChecklistCompleted) {
+          // If checklist is completed, all questions are locked
+          isLocked = true;
+        } else {
+          final ticketsData = _checklistData?['tickets'];
+          if (ticketsData != null && ticketsData is Map) {
+            final tickets = ticketsData as Map<String, dynamic>;
+            if (tickets.containsKey(questionId.toString())) {
+              final ticket = tickets[questionId.toString()] as Map<String, dynamic>?;
+              final ticketStatus = ticket?['ticket_status'] as Map<String, dynamic>?;
+              final ticketStatusTitle = ticketStatus?['title'] as String? ?? '';
+              final isTicketCompleted = ticketStatusTitle.toLowerCase().contains('completed') || 
+                                       ticketStatusTitle.toLowerCase().contains('complete') ||
+                                       ticketStatusTitle.toLowerCase().contains('resolved') ||
+                                       ticketStatusTitle.toLowerCase().contains('closed');
+              // Question is locked if ticket exists and is not completed
+              isLocked = !isTicketCompleted;
+            }
+          }
+        }
+        
+        // Add to completed score if answered OR locked (locked = completed)
+        if (hasAnswer || isLocked) {
           completedScore += questionScore;
         }
       }
@@ -102,6 +126,23 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
     super.initState();
     _loadChecklistDetail();
     _loadLocalAnswers(); // Load locally saved answers
+  }
+  
+  /// Get checklist status from database (matching web logic)
+  /// Returns the status title or null if not available
+  String? _getChecklistStatus() {
+    if (_checklistData == null) return null;
+    final checklist = _checklistData!['checklist'] as Map<String, dynamic>?;
+    final checklistStatus = checklist?['status'] as Map<String, dynamic>?;
+    return checklistStatus?['title'] as String?;
+  }
+  
+  /// Check if checklist is completed based on database status
+  /// Matches web logic: only "Completed" status disables questions
+  bool _isChecklistCompleted() {
+    final statusTitle = _getChecklistStatus() ?? '';
+    return statusTitle.toLowerCase().contains('completed') || 
+           statusTitle.toLowerCase().contains('complete');
   }
   
   /// Load answers saved locally from SharedPreferences
@@ -154,6 +195,18 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       print('Debug - Saved answers locally for checklist ${widget.checklistId}');
     } catch (e) {
       print('Debug - Error saving local answers: $e');
+    }
+  }
+  
+  /// Clear locally saved answers (used when status becomes Active)
+  Future<void> _clearLocalAnswers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'checklist_answers_${widget.checklistId}';
+      await prefs.remove(key);
+      print('Debug - Cleared local answers for checklist ${widget.checklistId}');
+    } catch (e) {
+      print('Debug - Error clearing local answers: $e');
     }
   }
 
@@ -231,30 +284,58 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
             print('Debug - Backend loaded, current _answers before update: $_answers');
+            print('Debug - Status data: ${data['data']['checklist']['status']}');
+            print('Debug - Frequency data: ${data['data']['checklist']['frequency']}');
             setState(() {
               _checklistData = data['data'];
               _isLoading = false;
               
-              // Pre-fill existing answers from backend
-              if (_checklistData!['answers'] != null) {
-                final answersData = _checklistData!['answers'];
-                // Backend can return either array [] or object {}
-                if (answersData is Map) {
-                  final answers = answersData as Map<String, dynamic>;
-                  print('Debug - Loading ${answers.length} answers from backend');
-                  answers.forEach((key, value) {
-                    final questionId = int.tryParse(key);
-                    if (questionId != null && value != null) {
-                      if (value is Map) {
-                        // Store answers in lowercase for consistency
-                        final answerValue = value['value']?.toString();
-                        print('Debug - Backend answer for question $questionId: $answerValue');
-                        _answers[questionId] = answerValue?.toLowerCase();
+              // Check if status is Active
+              final checklist = _checklistData!['checklist'] as Map<String, dynamic>?;
+              final checklistStatus = checklist?['status'] as Map<String, dynamic>?;
+              final statusTitle = checklistStatus?['title'] as String? ?? '';
+              final isActive = statusTitle.toLowerCase().contains('active');
+              
+              if (isActive) {
+                // If status is Active, clear all answers and input fields (ready for new input)
+                print('Debug - Status is Active: Clearing all answers for fresh start');
+                _answers.clear();
+                _textControllers.forEach((key, controller) {
+                  controller.clear();
+                });
+                // Clear local saved answers
+                _clearLocalAnswers();
+              } else {
+                // Pre-fill existing answers from backend (matching web logic)
+                if (_checklistData!['answers'] != null) {
+                  final answersData = _checklistData!['answers'];
+                  // Backend returns answers keyed by question_id (as Map/Object)
+                  if (answersData is Map) {
+                    final answers = answersData as Map<String, dynamic>;
+                    print('Debug - Loading ${answers.length} answers from backend');
+                    answers.forEach((key, answerObj) {
+                      final questionId = int.tryParse(key);
+                      if (questionId != null && answerObj != null) {
+                        // Answer structure: { value: "...", score: ..., question_id: ..., ... }
+                        // Match web logic: $answers[$question->id]->value ?? null
+                        if (answerObj is Map) {
+                          final answerValue = answerObj['value'];
+                          // Use value as-is (no lowercase conversion) - matching web behavior
+                          if (answerValue != null) {
+                            print('Debug - Backend answer for question $questionId: $answerValue');
+                            _answers[questionId] = answerValue.toString();
+                            
+                            // Update TextEditingController if it exists
+                            if (_textControllers.containsKey(questionId)) {
+                              _textControllers[questionId]?.text = answerValue.toString();
+                            }
+                          }
+                        }
                       }
-                    }
-                  });
+                    });
+                  }
+                  // If it's an array, it means no answers yet
                 }
-                // If it's an array, it means no answers yet
               }
               print('Debug - After backend load, _answers: $_answers');
             });
@@ -563,17 +644,35 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       }
     }
     
-    // Check if checklist is completed
-    final checklist = _checklistData?['checklist'] as Map<String, dynamic>?;
-    final checklistStatus = checklist?['status'] as Map<String, dynamic>?;
-    final statusTitle = checklistStatus?['title'] as String? ?? '';
-    final isChecklistCompleted = statusTitle.toLowerCase().contains('completed') || 
-                                 statusTitle.toLowerCase().contains('complete');
+    // Check if checklist is completed (using helper method - matching web logic)
+    final statusTitle = _getChecklistStatus() ?? '';
+    final isChecklistCompleted = _isChecklistCompleted();
+    final isActive = statusTitle.toLowerCase().contains('active');
+    
+    // Debug logging
+    print('Debug - Checklist status check:');
+    print('  - statusTitle: $statusTitle');
+    print('  - isChecklistCompleted: $isChecklistCompleted');
+    print('  - isActive: $isActive');
+    print('  - hasTicket: $hasTicket');
+    print('  - isTicketCompleted: $isTicketCompleted');
     
     // Question should be disabled if:
-    // 1. Checklist is completed (regardless of ticket status), OR
-    // 2. Checklist is not completed AND has a ticket AND ticket is not completed
-    final shouldDisable = isChecklistCompleted || (hasTicket && !isTicketCompleted);
+    // 1. Checklist status is "Completed" (matching web logic), OR
+    // 2. Has a ticket AND ticket is not completed
+    // IMPORTANT: If status is "Active", all inputs must be enabled (ready for input)
+    // unless there's an incomplete ticket for this specific question
+    bool shouldDisable;
+    if (isActive) {
+      // If status is Active, only disable if there's an incomplete ticket
+      shouldDisable = hasTicket && !isTicketCompleted;
+      print('  - Active status: inputs enabled (unless incomplete ticket)');
+    } else {
+      // For other statuses, disable if completed OR has incomplete ticket
+      shouldDisable = isChecklistCompleted || (hasTicket && !isTicketCompleted);
+    }
+    
+    print('  - shouldDisable: $shouldDisable');
     
     Color priorityColor;
     switch (priorityTitle.toLowerCase()) {
@@ -587,15 +686,18 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         priorityColor = const Color(0xFF3182CE); // Blue
     }
 
-    return Card(
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Colors.grey.shade200,
-          width: 1,
-        ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -605,57 +707,123 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
             // Question header with step number and priority
             Row(
               children: [
-                // Step number
+                // Step number with gradient
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3182CE),
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        priorityColor,
+                        priorityColor.withOpacity(0.7),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: priorityColor.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: Text(
                       '${index + 1}',
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Priority badge
+                // Priority badge with modern styling
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: priorityColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: priorityColor.withOpacity(0.3)),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        priorityColor.withOpacity(0.15),
+                        priorityColor.withOpacity(0.08),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: priorityColor.withOpacity(0.2),
+                      width: 1.5,
+                    ),
                   ),
                   child: Text(
                     priorityTitle.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
                       color: priorityColor,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ],
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             
-            // Question text
-            Text(
-              questionText,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF2D3748),
-                height: 1.4,
-              ),
+            // Question text with score percentage (matching web layout)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    questionText,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A202C),
+                      height: 1.5,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Score percentage badge (matching web)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF3B82F6).withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 14,
+                        color: Color(0xFF3B82F6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${(question['score'] as num?)?.toDouble() ?? 0.0}%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF3B82F6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             
             const SizedBox(height: 16),
@@ -666,7 +834,7 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
             else if (questionType == 'checkbox')
               _buildCheckboxOptions(questionId, question)
             else if (questionType == 'text' || questionType == 'textarea')
-              _buildTextInput(questionId)
+              _buildTextInput(questionId, questionType)
             else
               _buildDynamicOptions(questionId, questionOptions, shouldDisable, question),
             
@@ -739,174 +907,305 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
     // Parse comma-separated options
     final options = optionsString.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
     
-    // If only 2-3 options, display in a row; otherwise use a column
-    final displayInRow = options.length <= 3;
+    // Check if this is a Yes/No question for toggle switch
+    final isYesNoQuestion = options.length == 2 && 
+                           options.any((o) => o.toLowerCase() == 'yes') && 
+                           options.any((o) => o.toLowerCase() == 'no');
     
-    return Container(
-      decoration: BoxDecoration(
-        color: disabled ? Colors.grey.shade50 : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: disabled ? Colors.grey.shade300 : Colors.grey.shade200,
-          width: 1,
-        ),
-      ),
-      child: displayInRow 
-        ? Row(
-            children: options.map((option) {
-              final isSelected = _answers[questionId] == option.toLowerCase();
-              return Expanded(
-                child: InkWell(
-                  onTap: disabled ? null : () async {
-                    setState(() {
-                      _answers[questionId] = option.toLowerCase();
-                    });
-                    
-                    // Add smooth scrolling effect
-                    await _scrollToNextQuestion(questionId);
-                    
-                    if (option.toLowerCase() == 'no') {
-                      print('Debug - "No" selected for question (row): $questionId');
-                      print('Debug - Question data (row): $question');
-                      _showCreateTicketDialog(question);
-                    } else {
-                      _saveAnswer(questionId, option.toLowerCase());
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: isSelected 
-                          ? (disabled ? Colors.grey.shade200 : const Color(0xFF3182CE).withOpacity(0.1))
-                        : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isSelected 
-                          ? (disabled ? Colors.grey : const Color(0xFF3182CE))
-                          : Colors.transparent,
-                        width: 1,
+    if (isYesNoQuestion) {
+      // Use separate toggle buttons for Yes/No questions
+      // Match web logic: compare case-insensitively but store as-is
+      final currentAnswer = _answers[questionId]?.toString().trim().toLowerCase();
+      final isYesSelected = currentAnswer == 'yes';
+      final isNoSelected = currentAnswer == 'no';
+      
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          // YES Toggle Switch
+          GestureDetector(
+            onTap: disabled ? null : () async {
+              // Toggle: if already selected, deselect it
+              // Match web logic: store trimmed option value (not lowercase)
+              final yesOption = options.firstWhere((o) => o.trim().toLowerCase() == 'yes', orElse: () => 'yes');
+              final newAnswer = isYesSelected ? null : yesOption.trim();
+              setState(() {
+                if (newAnswer == null) {
+                  _answers.remove(questionId);
+                } else {
+                  _answers[questionId] = newAnswer;
+                }
+              });
+              
+              if (newAnswer != null) {
+                await _scrollToNextQuestion(questionId);
+                _saveAnswer(questionId, newAnswer);
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              width: 90,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: isYesSelected && !disabled
+                    ? const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                      )
+                    : null,
+                color: !isYesSelected
+                    ? (disabled ? Colors.grey.shade300 : Colors.grey.shade200)
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  // YES Label (positioned to avoid knob)
+                  Positioned.fill(
+                    child: Align(
+                      alignment: isYesSelected ? Alignment.centerLeft : Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: Text(
+                          'YES',
+                          style: TextStyle(
+                            color: isYesSelected && !disabled
+                                ? Colors.white
+                                : Colors.grey.shade600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected 
-                                ? (disabled ? Colors.grey : const Color(0xFF3182CE))
-                                : Colors.grey.shade400,
-                              width: 2,
-                            ),
-                            color: isSelected 
-                              ? (disabled ? Colors.grey : const Color(0xFF3182CE))
-                              : Colors.transparent,
-                          ),
-                          child: isSelected
-                            ? const Icon(
-                                Icons.check,
-                                size: 12,
-                                color: Colors.white,
-                              )
-                            : null,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          option,
-                          style: TextStyle(
-                            color: disabled 
-                              ? Colors.grey.shade500 
-                              : (isSelected ? const Color(0xFF3182CE) : const Color(0xFF2D3748)),
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          )
-        : Column(
-            children: options.map((option) {
-              final isSelected = _answers[questionId] == option.toLowerCase();
-              return InkWell(
-                onTap: disabled ? null : () async {
-                  setState(() {
-                    _answers[questionId] = option.toLowerCase();
-                  });
-                  
-                  // Add smooth scrolling effect
-                  await _scrollToNextQuestion(questionId);
-                  
-                  if (option.toLowerCase() == 'no') {
-                    print('Debug - "No" selected for question: $questionId');
-                    print('Debug - Question data: $question');
-                    _showCreateTicketDialog(question);
-                  } else {
-                    _saveAnswer(questionId, option.toLowerCase());
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                        ? (disabled ? Colors.grey.shade200 : const Color(0xFF3182CE).withOpacity(0.1))
-                      : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isSelected 
-                        ? (disabled ? Colors.grey : const Color(0xFF3182CE))
-                        : Colors.transparent,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected 
-                              ? (disabled ? Colors.grey : const Color(0xFF3182CE))
-                              : Colors.grey.shade400,
-                            width: 2,
+                  // Sliding Knob with checkmark
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    left: isYesSelected ? 90 - 36 : 3,
+                    top: 3,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
                           ),
-                          color: isSelected 
-                            ? (disabled ? Colors.grey : const Color(0xFF3182CE))
-                            : Colors.transparent,
-                        ),
-                        child: isSelected
+                        ],
+                      ),
+                      child: isYesSelected
                           ? const Icon(
                               Icons.check,
-                              size: 12,
-                              color: Colors.white,
+                              color: Color(0xFF10B981),
+                              size: 20,
                             )
                           : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        option,
-                        style: TextStyle(
-                          color: disabled 
-                            ? Colors.grey.shade500 
-                            : (isSelected ? const Color(0xFF3182CE) : const Color(0xFF2D3748)),
-                          fontSize: 14,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 16),
+          
+          // NO Toggle Switch
+          GestureDetector(
+            onTap: disabled ? null : () async {
+              // Toggle: if already selected, deselect it
+              // Match web logic: store trimmed option value (not lowercase)
+              final noOption = options.firstWhere((o) => o.trim().toLowerCase() == 'no', orElse: () => 'no');
+              final newAnswer = isNoSelected ? null : noOption.trim();
+              setState(() {
+                if (newAnswer == null) {
+                  _answers.remove(questionId);
+                } else {
+                  _answers[questionId] = newAnswer;
+                }
+              });
+              
+              if (newAnswer != null && newAnswer.trim().toLowerCase() == 'no') {
+                await _scrollToNextQuestion(questionId);
+                print('Debug - "No" selected for question: $questionId');
+                print('Debug - Question data: $question');
+                _showCreateTicketDialog(question);
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              width: 90,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: isNoSelected && !disabled
+                    ? const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                      )
+                    : null,
+                color: !isNoSelected
+                    ? (disabled ? Colors.grey.shade300 : Colors.grey.shade200)
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  // NO Label (positioned to avoid knob)
+                  Positioned.fill(
+                    child: Align(
+                      alignment: isNoSelected ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: Text(
+                          'NO',
+                          style: TextStyle(
+                            color: isNoSelected && !disabled
+                                ? Colors.white
+                                : Colors.grey.shade600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
-                    ],
+                    ),
+                  ),
+                  // Sliding Knob with checkmark
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    left: isNoSelected ? 3 : 90 - 36,
+                    top: 3,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: isNoSelected
+                          ? const Icon(
+                              Icons.close,
+                              color: Color(0xFFEF4444),
+                              size: 20,
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    // For other options, use the original button layout
+    // Match web logic: compare case-insensitively, store trimmed value
+    return Row(
+      children: options.map((option) {
+        final trimmedOption = option.trim();
+        final currentAnswer = _answers[questionId]?.toString().trim();
+        // Case-insensitive comparison (matching web: $answer == trim($opt))
+        final isSelected = currentAnswer != null && 
+                          currentAnswer.toLowerCase() == trimmedOption.toLowerCase();
+        
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: option != options.last ? 8 : 0,
+            ),
+            child: InkWell(
+              onTap: disabled ? null : () async {
+                // Store trimmed option value (matching web logic)
+                setState(() {
+                  _answers[questionId] = trimmedOption;
+                });
+                
+                await _scrollToNextQuestion(questionId);
+                
+                if (trimmedOption.toLowerCase() == 'no') {
+                  print('Debug - "No" selected for question (row): $questionId');
+                  print('Debug - Question data (row): $question');
+                  _showCreateTicketDialog(question);
+                } else {
+                  _saveAnswer(questionId, trimmedOption);
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? (disabled ? Colors.grey.shade200 : const Color(0xFF3B82F6).withOpacity(0.1))
+                      : (disabled ? Colors.grey.shade100 : Colors.grey.shade50),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected 
+                      ? (disabled ? Colors.grey : const Color(0xFF3B82F6))
+                      : (disabled ? Colors.grey.shade300 : Colors.grey.shade300),
+                    width: isSelected ? 2 : 1,
                   ),
                 ),
-              );
-            }).toList(),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isSelected)
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 18,
+                        color: disabled ? Colors.grey.shade600 : const Color(0xFF3B82F6),
+                      ),
+                    if (isSelected) const SizedBox(width: 8),
+                    Text(
+                      option,
+                      style: TextStyle(
+                        color: disabled 
+                          ? Colors.grey.shade600 
+                          : (isSelected ? const Color(0xFF3B82F6) : Colors.grey.shade700),
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
+        );
+      }).toList(),
     );
   }
 
@@ -978,12 +1277,19 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       }
     }
     
-    final checklist = _checklistData?['checklist'] as Map<String, dynamic>?;
-    final checklistStatus = checklist?['status'] as Map<String, dynamic>?;
-    final statusTitle = checklistStatus?['title'] as String? ?? '';
-    final isChecklistCompleted = statusTitle.toLowerCase().contains('completed') || 
-                                 statusTitle.toLowerCase().contains('complete');
-    final shouldDisable = isChecklistCompleted || (hasTicket && !isTicketCompleted);
+    // Use helper method for consistent status checking
+    final statusTitle = _getChecklistStatus() ?? '';
+    final isChecklistCompleted = _isChecklistCompleted();
+    final isActive = statusTitle.toLowerCase().contains('active');
+    
+    // If status is Active, only disable if there's an incomplete ticket
+    // Otherwise, disable if completed OR has incomplete ticket
+    bool shouldDisable;
+    if (isActive) {
+      shouldDisable = hasTicket && !isTicketCompleted;
+    } else {
+      shouldDisable = isChecklistCompleted || (hasTicket && !isTicketCompleted);
+    }
     
     // Parse options from question data
     final optionsString = question['options'] as String? ?? '';
@@ -1001,21 +1307,28 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         ),
         onChanged: (value) {
           setState(() {
-            _answers[questionId] = value?.toLowerCase();
+            // Store value as-is (trimmed) - matching web logic
+            _answers[questionId] = value?.trim();
           });
         },
         onSubmitted: (value) {
-          _saveAnswer(questionId, value.toLowerCase());
+          _saveAnswer(questionId, value.trim());
         },
       );
     }
     
     // Parse selected values (comma-separated string stored in _answers)
-    final selectedValues = (_answers[questionId] ?? '').split(',').where((e) => e.isNotEmpty).toSet();
+    // Match web logic: store trimmed values, compare case-insensitively
+    final answerString = _answers[questionId]?.toString() ?? '';
+    final selectedValuesList = answerString.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final selectedValuesSet = selectedValuesList.map((e) => e.toLowerCase()).toSet();
     
     return Column(
       children: options.map((option) {
-        final optionLower = option.toLowerCase();
+        final trimmedOption = option.trim();
+        // Case-insensitive comparison (matching web logic)
+        final isSelected = selectedValuesSet.contains(trimmedOption.toLowerCase());
+        
         return CheckboxListTile(
           title: Text(
             option,
@@ -1024,18 +1337,32 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
               fontSize: 14,
             ),
           ),
-          value: selectedValues.contains(optionLower),
+          value: isSelected,
           onChanged: shouldDisable ? null : (checked) {
             setState(() {
+              final currentValues = List<String>.from(selectedValuesList);
               if (checked == true) {
-                selectedValues.add(optionLower);
+                // Add trimmed option if not already present
+                if (!currentValues.any((v) => v.toLowerCase() == trimmedOption.toLowerCase())) {
+                  currentValues.add(trimmedOption);
+                }
               } else {
-                selectedValues.remove(optionLower);
+                // Remove option (case-insensitive)
+                currentValues.removeWhere((v) => v.toLowerCase() == trimmedOption.toLowerCase());
               }
-              _answers[questionId] = selectedValues.join(',');
+              // Store as comma-separated string (matching web: implode(',', $processedValue))
+              _answers[questionId] = currentValues.join(',');
             });
             // Save answer after checkbox change
-            _saveAnswer(questionId, selectedValues.join(','));
+            final currentValues = List<String>.from(selectedValuesList);
+            if (checked == true) {
+              if (!currentValues.any((v) => v.toLowerCase() == trimmedOption.toLowerCase())) {
+                currentValues.add(trimmedOption);
+              }
+            } else {
+              currentValues.removeWhere((v) => v.toLowerCase() == trimmedOption.toLowerCase());
+            }
+            _saveAnswer(questionId, currentValues.join(','));
           },
           activeColor: shouldDisable ? Colors.grey : const Color(0xFF8B5CF6),
           controlAffinity: ListTileControlAffinity.leading,
@@ -1045,7 +1372,7 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
     );
   }
 
-  Widget _buildTextInput(int questionId) {
+  Widget _buildTextInput(int questionId, String questionType) {
     // Check if question should be disabled
     bool hasTicket = false;
     bool isTicketCompleted = false;
@@ -1066,12 +1393,19 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       }
     }
     
-    final checklist = _checklistData?['checklist'] as Map<String, dynamic>?;
-    final checklistStatus = checklist?['status'] as Map<String, dynamic>?;
-    final statusTitle = checklistStatus?['title'] as String? ?? '';
-    final isChecklistCompleted = statusTitle.toLowerCase().contains('completed') || 
-                                 statusTitle.toLowerCase().contains('complete');
-    final shouldDisable = isChecklistCompleted || (hasTicket && !isTicketCompleted);
+    // Use helper method for consistent status checking
+    final statusTitle = _getChecklistStatus() ?? '';
+    final isChecklistCompleted = _isChecklistCompleted();
+    final isActive = statusTitle.toLowerCase().contains('active');
+    
+    // If status is Active, only disable if there's an incomplete ticket
+    // Otherwise, disable if completed OR has incomplete ticket
+    bool shouldDisable;
+    if (isActive) {
+      shouldDisable = hasTicket && !isTicketCompleted;
+    } else {
+      shouldDisable = isChecklistCompleted || (hasTicket && !isTicketCompleted);
+    }
     
     // Create or reuse TextEditingController for this question
     if (!_textControllers.containsKey(questionId)) {
@@ -1081,33 +1415,111 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       print('Debug - Created TextEditingController for question $questionId with initial value: "${_answers[questionId]}"');
     }
     
-    return TextField(
-      controller: _textControllers[questionId],
-      enabled: !shouldDisable,
-      decoration: InputDecoration(
-        labelText: 'Your Answer',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+    // Matching web layout: Text field with save button on the right (no label above field)
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Text field (left side, takes most space) - matching web's form-control styling
+        Expanded(
+          child: TextField(
+            controller: _textControllers[questionId],
+            enabled: !shouldDisable,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF374151),
+              height: 1.5,
+            ),
+            decoration: InputDecoration(
+              hintText: null, // No hint text in web view
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(
+                  color: Color(0xFF3B82F6),
+                  width: 2,
+                ),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            maxLines: questionType == 'textarea' ? 4 : 1,
+            minLines: questionType == 'textarea' ? 3 : 1,
+            onChanged: (value) {
+              print('Debug - Text changed for question $questionId: "$value"');
+              _answers[questionId] = value;
+              // Debounce save to avoid excessive requests while typing
+              _textSaveTimers[questionId]?.cancel();
+              _textSaveTimers[questionId] = Timer(const Duration(milliseconds: 500), () {
+                print('Debug - Debounce timer fired for question $questionId, saving: "${_answers[questionId]}"');
+                _saveAnswer(questionId, _answers[questionId] ?? '', showSuccess: false);
+              });
+            },
+            onSubmitted: (value) {
+              // Immediate save when user submits from keyboard
+              print('Debug - Text submitted for question $questionId: "$value"');
+              _textSaveTimers[questionId]?.cancel();
+              _saveAnswer(questionId, value, showSuccess: false);
+            },
+          ),
         ),
-        contentPadding: const EdgeInsets.all(12),
-      ),
-      maxLines: 3,
-      onChanged: (value) {
-        print('Debug - Text changed for question $questionId: "$value"');
-        _answers[questionId] = value;
-        // Debounce save to avoid excessive requests while typing
-        _textSaveTimers[questionId]?.cancel();
-        _textSaveTimers[questionId] = Timer(const Duration(milliseconds: 500), () {
-          print('Debug - Debounce timer fired for question $questionId, saving: "${_answers[questionId]}"');
-          _saveAnswer(questionId, _answers[questionId] ?? '', showSuccess: false);
-        });
-      },
-      onSubmitted: (value) {
-        // Immediate save when user submits from keyboard
-        print('Debug - Text submitted for question $questionId: "$value"');
-        _textSaveTimers[questionId]?.cancel();
-        _saveAnswer(questionId, value, showSuccess: false);
-      },
+        // Save button (right side, matching web) - matching web's manual-save-btn styling
+        const SizedBox(width: 12),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: shouldDisable ? null : () {
+              // Manual save button (matching web behavior)
+              _textSaveTimers[questionId]?.cancel();
+              final value = _textControllers[questionId]?.text ?? '';
+              _answers[questionId] = value;
+              _saveAnswer(questionId, value, showSuccess: true);
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: shouldDisable 
+                    ? Colors.grey.shade200 
+                    : const Color(0xFF3B82F6),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: shouldDisable 
+                      ? Colors.grey.shade300 
+                      : const Color(0xFF3B82F6),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Icons.save_rounded,
+                size: 18,
+                color: shouldDisable ? Colors.grey.shade500 : Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1121,18 +1533,36 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
     final status = checklist['status'] as Map<String, dynamic>?;
     final frequency = checklist['frequency'] as Map<String, dynamic>?;
     
-    final location = '${workspace?['title'] ?? ''} • ${project?['title'] ?? ''}'.trim();
+    final location = '${project?['title'] ?? ''}'.trim();
     final checklistTheme = theme?['title'] ?? 'N/A';
-    final statusTitle = status?['title'] ?? 'N/A';
     final frequencyTitle = frequency?['title'] ?? 'N/A';
     final score = _calculateScore();
     
-    // Calculate progress
+    // Use helper method to get status (matching web logic: $checklist->status->title)
+    final statusTitle = _getChecklistStatus() ?? 'N/A';
+    String displayStatus = statusTitle;
+    Color statusColor;
+    
+    // Color coding based on database status (matching web)
+    final statusLower = statusTitle.toLowerCase();
+    if (statusLower.contains('completed') || statusLower.contains('complete')) {
+      statusColor = const Color(0xFF10B981); // Green
+    } else if (statusLower.contains('active')) {
+      statusColor = const Color(0xFF3B82F6); // Blue
+    } else if (statusLower.contains('progress')) {
+      statusColor = const Color(0xFF3B82F6); // Blue
+    } else {
+      statusColor = Colors.grey;
+    }
+    
+    // Calculate progress (including locked questions as completed)
     int totalQuestions = 0;
     int answeredQuestions = 0;
     
     final groups = theme?['groups'] as List<dynamic>? ?? [];
     final answersData = _checklistData!['answers'];
+    final ticketsData = _checklistData?['tickets'];
+    final isChecklistCompleted = _isChecklistCompleted();
     
     for (var group in groups) {
       final groupData = group as Map<String, dynamic>;
@@ -1143,6 +1573,7 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         final questionData = question as Map<String, dynamic>;
         final questionId = questionData['id'] as int;
         
+        // Check if question has an answer
         bool hasAnswer = false;
         if (answersData != null && answersData is Map) {
           final answers = answersData as Map<String, dynamic>;
@@ -1154,17 +1585,46 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
           hasAnswer = true;
         }
         
-        if (hasAnswer) answeredQuestions++;
+        // Check if question is locked (disabled)
+        bool isLocked = false;
+        if (isChecklistCompleted) {
+          // If checklist is completed, all questions are locked
+          isLocked = true;
+        } else if (ticketsData != null && ticketsData is Map) {
+          final tickets = ticketsData as Map<String, dynamic>;
+          if (tickets.containsKey(questionId.toString())) {
+            final ticket = tickets[questionId.toString()] as Map<String, dynamic>?;
+            final ticketStatus = ticket?['ticket_status'] as Map<String, dynamic>?;
+            final ticketStatusTitle = ticketStatus?['title'] as String? ?? '';
+            final isTicketCompleted = ticketStatusTitle.toLowerCase().contains('completed') || 
+                                     ticketStatusTitle.toLowerCase().contains('complete') ||
+                                     ticketStatusTitle.toLowerCase().contains('resolved') ||
+                                     ticketStatusTitle.toLowerCase().contains('closed');
+            // Question is locked if ticket exists and is not completed
+            isLocked = !isTicketCompleted;
+          }
+        }
+        
+        // Count as answered if it has an answer OR is locked (locked = completed)
+        if (hasAnswer || isLocked) {
+          answeredQuestions++;
+        }
       }
     }
     
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -1172,13 +1632,13 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
           Row(
             children: [
               Expanded(
-                child: _buildDetailItem('Location', location, Icons.location_on),
+                child: _buildDetailItem('Location', location, Icons.location_on_outlined),
               ),
               Expanded(
-                child: _buildDetailItem('Checklist Theme', checklistTheme, Icons.list_alt),
+                child: _buildDetailItem('Checklist Theme', checklistTheme, Icons.assignment_outlined),
               ),
               Expanded(
-                child: _buildDetailItem('Status', statusTitle, Icons.info_outline),
+                child: _buildDetailItem('Status', displayStatus, Icons.info_outline, valueColor: statusColor),
               ),
             ],
           ),
@@ -1187,23 +1647,22 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
           Row(
             children: [
               Expanded(
-                child: _buildDetailItem(
-                  'Progress',
-                  '$answeredQuestions/$totalQuestions',
-                  Icons.trending_up,
-                  valueColor: const Color(0xFF059669),
+                child: _buildProgressItem(
+                  answeredQuestions,
+                  totalQuestions,
+                  isActive: statusLower.contains('active'),
                 ),
               ),
               Expanded(
                 child: _buildDetailItem(
                   'Score',
                   '${score.toStringAsFixed(0)}/100(%)',
-                  Icons.star,
+                  Icons.star_rounded,
                   valueColor: const Color(0xFFDC2626),
                 ),
               ),
               Expanded(
-                child: _buildDetailItem('Frequency', frequencyTitle, Icons.schedule),
+                child: _buildDetailItem('Frequency', frequencyTitle, Icons.schedule_rounded),
               ),
             ],
           ),
@@ -1219,22 +1678,66 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 11,
             color: Colors.grey[600],
             fontWeight: FontWeight.w500,
+            letterSpacing: -0.1,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           value,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
             color: valueColor ?? Colors.black87,
+            letterSpacing: -0.2,
           ),
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
+      ],
+    );
+  }
+  
+  Widget _buildProgressItem(int answeredQuestions, int totalQuestions, {required bool isActive}) {
+    final progress = totalQuestions > 0 ? answeredQuestions / totalQuestions : 0.0;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Progress',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$answeredQuestions/$totalQuestions',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF10B981),
+            letterSpacing: -0.2,
+          ),
+        ),
+        // Show progress bar when status is Active
+        if (isActive) ...[
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)), // Blue for Active
+              minHeight: 6,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1269,14 +1772,17 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       final questions = groupData['questions'] as List<dynamic>? ?? [];
 
       if (questions.isNotEmpty) {
-        // Calculate progress for this group
+        // Calculate progress for this group (including locked questions as completed)
         int answeredInGroup = 0;
         int totalInGroup = questions.length;
+        final ticketsData = _checklistData?['tickets'];
+        final isChecklistCompleted = _isChecklistCompleted();
         
         for (var question in questions) {
           final questionData = question as Map<String, dynamic>;
           final questionId = questionData['id'] as int;
           
+          // Check if question has an answer
           bool hasAnswer = false;
           final answersData = _checklistData!['answers'];
           if (answersData != null && answersData is Map) {
@@ -1289,7 +1795,30 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
             hasAnswer = true;
           }
           
-          if (hasAnswer) answeredInGroup++;
+          // Check if question is locked (disabled)
+          bool isLocked = false;
+          if (isChecklistCompleted) {
+            // If checklist is completed, all questions are locked
+            isLocked = true;
+          } else if (ticketsData != null && ticketsData is Map) {
+            final tickets = ticketsData as Map<String, dynamic>;
+            if (tickets.containsKey(questionId.toString())) {
+              final ticket = tickets[questionId.toString()] as Map<String, dynamic>?;
+              final ticketStatus = ticket?['ticket_status'] as Map<String, dynamic>?;
+              final ticketStatusTitle = ticketStatus?['title'] as String? ?? '';
+              final isTicketCompleted = ticketStatusTitle.toLowerCase().contains('completed') || 
+                                       ticketStatusTitle.toLowerCase().contains('complete') ||
+                                       ticketStatusTitle.toLowerCase().contains('resolved') ||
+                                       ticketStatusTitle.toLowerCase().contains('closed');
+              // Question is locked if ticket exists and is not completed
+              isLocked = !isTicketCompleted;
+            }
+          }
+          
+          // Count as answered if it has an answer OR is locked (locked = completed)
+          if (hasAnswer || isLocked) {
+            answeredInGroup++;
+          }
         }
 
         // Initialize expanded state for new groups
@@ -1356,20 +1885,13 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
     }
     
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: lightAccentColor,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: borderColor,
-          width: 1.5,
+          color: accentColor.withOpacity(0.2),
+          width: 1,
         ),
       ),
       child: Column(
@@ -1381,27 +1903,27 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                 _expandedGroups[groupId] = !isExpanded;
               });
             },
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Column(
                 children: [
                   Row(
                     children: [
                       // Group Icon
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: lightAccentColor,
+                          color: accentColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
-                          Icons.folder_open,
+                          Icons.folder_open_rounded,
                           color: accentColor,
-                          size: 22,
+                          size: 20,
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       
                       // Group Title
                       Expanded(
@@ -1410,20 +1932,21 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                           children: [
                             Text(
                               groupTitle,
-                              style: const TextStyle(
-                                fontSize: 17,
+                              style: TextStyle(
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF0F172A),
-                                letterSpacing: 0.2,
+                                color: accentColor,
+                                letterSpacing: -0.3,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 2),
                             Text(
                               '$totalCount ${totalCount == 1 ? 'Question' : 'Questions'}',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 11,
                                 color: Colors.grey[600],
                                 fontWeight: FontWeight.w500,
+                                letterSpacing: -0.1,
                               ),
                             ),
                           ],
@@ -1432,32 +1955,28 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                       
                       // Progress Badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: lightAccentColor,
+                          color: accentColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: accentColor.withOpacity(0.3),
-                            width: 1,
-                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               isComplete 
-                                ? Icons.check_circle
+                                ? Icons.check_circle_rounded
                                 : isInProgress
-                                  ? Icons.hourglass_bottom
-                                  : Icons.pending_actions,
+                                  ? Icons.hourglass_bottom_rounded
+                                  : Icons.pending_actions_rounded,
                               color: accentColor,
-                              size: 16,
+                              size: 14,
                             ),
-                            const SizedBox(width: 5),
+                            const SizedBox(width: 4),
                             Text(
                               '$answeredCount/$totalCount',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: accentColor,
                               ),
@@ -1466,26 +1985,33 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                         ),
                       ),
                       
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       
                       // Expand/Collapse Icon
-                      Icon(
-                        isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: Colors.grey[600],
-                        size: 26,
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                          color: accentColor,
+                          size: 18,
+                        ),
                       ),
                     ],
                   ),
                   
                   // Progress Bar
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: Colors.grey[200],
+                      backgroundColor: Colors.white.withOpacity(0.5),
                       valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                      minHeight: 5,
+                      minHeight: 6,
                     ),
                   ),
                 ],
@@ -1496,13 +2022,21 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
           // Accordion Content (Questions)
           if (isExpanded)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
               child: Column(
                 children: [
+                  const SizedBox(height: 12),
                   for (int i = 0; i < questions.length; i++)
                     Padding(
                       padding: EdgeInsets.only(
-                        bottom: i < questions.length - 1 ? 16 : 0,
+                        bottom: i < questions.length - 1 ? 12 : 0,
                       ),
                       child: _buildQuestionCard(
                         questions[i] as Map<String, dynamic>,
@@ -1521,89 +2055,125 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
-      appBar: AppBar(
-        title: Text(
-          widget.checklistTitle,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: Colors.grey[300],
-            height: 1,
-          ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom header
+            _buildCustomHeader(context),
+            // Body content
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : _error != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 64,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error loading checklist',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 32),
+                                child: Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: _loadChecklistDetail,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryPurple,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 32,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Retry',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            _buildDetailsHeader(),
+                            Expanded(
+                              child: _buildQuestionsSection(),
+                            ),
+                          ],
+                        ),
+            ),
+          ],
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Colors.red,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Error loading checklist',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[800],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _loadChecklistDetail,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryPurple,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          'Retry',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Column(
-                  children: [
-                    _buildDetailsHeader(),
-                    Expanded(
-                      child: _buildQuestionsSection(),
-                    ),
-                  ],
+    );
+  }
+
+  Widget _buildCustomHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      color: Theme.of(context).colorScheme.background,
+      child: Row(
+        children: [
+          // Back button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
+              ],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 22),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Title
+          Expanded(
+            child: Text(
+              widget.checklistTitle,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+                letterSpacing: -0.5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -167,7 +167,8 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
 
   Widget _buildHeaderSection() {
     return Container(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      color: Theme.of(context).colorScheme.background,
       child: Row(
         children: [
           // Back button
@@ -184,7 +185,7 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
               ],
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 22),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -197,37 +198,44 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
+                letterSpacing: -0.5,
               ),
             ),
           ),
           // Sort button
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Sort by Title',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+          GestureDetector(
+            onTap: () {
+              // TODO: Implement sort functionality
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.black87),
-              ],
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Sort by Title',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.grey[700]),
+                ],
+              ),
             ),
           ),
         ],
@@ -313,17 +321,14 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
     final statusColor = _getStatusColor(status);
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: statusColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: statusColor.withOpacity(0.15),
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
@@ -336,29 +341,20 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
             },
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: isExpanded 
-                  ? const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    )
-                  : BorderRadius.circular(16),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   // Status icon
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      color: statusColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       _getStatusIcon(status),
                       color: statusColor,
-                      size: 20,
+                      size: 18,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -370,25 +366,37 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
                         Text(
                           status,
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                             color: statusColor,
+                            letterSpacing: -0.3,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           '${items.length} ${items.length == 1 ? 'checklist' : 'checklists'}',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
                           ),
                         ),
                       ],
                     ),
                   ),
                   // Expand/collapse icon
-                  Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: statusColor,
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                      color: statusColor,
+                      size: 18,
+                    ),
                   ),
                 ],
               ),
@@ -397,11 +405,11 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
           // Accordion content
           if (isExpanded)
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Column(
                 children: items.map((item) {
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: _ChecklistCard(
                       item: item as Map<String, dynamic>,
                       onNavigateBack: () => _load(isRefresh: true),
@@ -463,11 +471,14 @@ class _ChecklistCard extends StatelessWidget {
   Color _statusColor(String status) {
     switch (status.toUpperCase()) {
       case 'ACTIVE':
+      case 'NOT STARTED':
         return const Color(0xFFF59E0B); // Orange
       case 'IN PROGRESS':
         return const Color(0xFF3B82F6); // Blue
       case 'COMPLETED':
         return const Color(0xFF10B981); // Green
+      case 'NO QUESTIONS':
+        return const Color(0xFF6B7280); // Grey
       default:
         return Colors.grey;
     }
@@ -475,21 +486,32 @@ class _ChecklistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = (item['status'] ?? '').toString();
-    final color = _statusColor(status);
+    // Calculate actual status based on progress
+    final answeredTotal = (item['answered_total'] ?? '0/0').toString();
+    final parts = answeredTotal.split('/');
+    final answered = int.tryParse(parts[0]) ?? 0;
+    final total = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    
+    String actualStatus;
+    if (total == 0) {
+      actualStatus = 'No Questions';
+    } else if (answered == 0) {
+      actualStatus = 'Not Started';
+    } else if (answered == total) {
+      actualStatus = 'Completed';
+    } else {
+      actualStatus = 'In Progress';
+    }
+    
+    final color = _statusColor(actualStatus);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 5,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -497,7 +519,7 @@ class _ChecklistCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           onTap: () async {
             // Navigate to detail page and wait for return
             await Navigator.push(
@@ -514,148 +536,170 @@ class _ChecklistCard extends StatelessWidget {
             onNavigateBack?.call();
           },
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Title and completion status
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
                         (item['title'] ?? '').toString(),
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                           color: Colors.black87,
+                          letterSpacing: -0.2,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: color.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: color.withOpacity(0.2),
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         (item['answered_total'] ?? '').toString(),
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                           color: color,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     )
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 
-                // Location
-                Text(
-                  (item['location'] ?? '').toString(),
-                  style: TextStyle(
-                    fontSize: 13, 
-                    color: Colors.grey[600], 
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // First question and status
+                // Location with icon
                 Row(
                   children: [
-                    const Icon(Icons.list_alt, size: 16, color: Colors.black54),
-                    const SizedBox(width: 8),
+                    Icon(Icons.location_on_outlined, size: 14, color: Colors.grey[500]),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        (item['first_question'] ?? '').toString(),
-                        style: const TextStyle(
-                          fontSize: 14, 
-                          color: Colors.black87,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        status,
+                        (item['location'] ?? '').toString(),
                         style: TextStyle(
-                          fontSize: 11, 
-                          fontWeight: FontWeight.w600, 
-                          color: color,
+                          fontSize: 12, 
+                          color: Colors.grey[600], 
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 
-                // Progress bar
-                LinearProgressIndicator(
-                  value: ((item['percent'] ?? 0) as num).toDouble() / 100.0,
-                  backgroundColor: Colors.grey[200],
-                  color: color,
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(4),
+                // First question and status
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.grey[200]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.checklist_rounded, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          (item['first_question'] ?? '').toString(),
+                          style: TextStyle(
+                            fontSize: 12, 
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          actualStatus.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 9, 
+                            fontWeight: FontWeight.w700, 
+                            color: color,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 
-                // Due and Next dates
+                // Progress bar with percentage
                 Row(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Due Date',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            (item['due_date'] ?? '').toString().replaceFirst(' ', ', '),
-                            style: const TextStyle(
-                              fontSize: 12, 
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: ((item['percent'] ?? 0) as num).toDouble() / 100.0,
+                          backgroundColor: Colors.grey[200],
+                          color: color,
+                          minHeight: 6,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${item['percent'] ?? 0}%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                
+                // Due and Next dates - more compact
+                Row(
+                  children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Next Time',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            (item['next_time'] ?? '').toString().replaceFirst(' ', ', '),
-                            style: const TextStyle(
-                              fontSize: 12, 
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                      child: _buildDateChip(
+                        Icons.calendar_today_rounded,
+                        'Due',
+                        (item['due_date'] ?? '').toString(),
+                        Colors.red,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildDateChip(
+                        Icons.schedule_rounded,
+                        'Next',
+                        (item['next_time'] ?? '').toString(),
+                        Colors.blue,
                       ),
                     ),
                   ],
@@ -664,6 +708,59 @@ class _ChecklistCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDateChip(IconData icon, String label, String date, Color color) {
+    // Format date to be more compact
+    final formattedDate = date.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final parts = formattedDate.split(',');
+    final displayDate = parts.isNotEmpty ? parts[0] : formattedDate;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: color.withOpacity(0.7),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                Text(
+                  displayDate,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1032,7 +1129,8 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
 
   Widget _buildHeaderSection() {
     return Container(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      color: Theme.of(context).colorScheme.background,
       child: Row(
         children: [
           // Back button
@@ -1049,7 +1147,7 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
               ],
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 22),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -1065,15 +1163,20 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
+                    letterSpacing: -0.5,
                   ),
                 ),
                 if (_locationName != null)
-                  Text(
-                    _locationName ?? '',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      _locationName ?? '',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.1,
+                      ),
                     ),
                   ),
               ],
@@ -1159,17 +1262,14 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
     final statusColor = _getStatusColor(status);
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: statusColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: statusColor.withOpacity(0.15),
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
@@ -1182,29 +1282,20 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
             },
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: isExpanded 
-                  ? const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    )
-                  : BorderRadius.circular(16),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   // Status icon
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      color: statusColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       _getStatusIcon(status),
                       color: statusColor,
-                      size: 20,
+                      size: 18,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1216,25 +1307,37 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
                         Text(
                           status,
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                             color: statusColor,
+                            letterSpacing: -0.3,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           '${items.length} ${items.length == 1 ? 'checklist' : 'checklists'}',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
                           ),
                         ),
                       ],
                     ),
                   ),
                   // Expand/collapse icon
-                  Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: statusColor,
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                      color: statusColor,
+                      size: 18,
+                    ),
                   ),
                 ],
               ),
@@ -1243,11 +1346,11 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
           // Accordion content
           if (isExpanded)
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Column(
                 children: items.map((item) {
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: _ChecklistCard(
                       item: item as Map<String, dynamic>,
                       onNavigateBack: () => _load(isRefresh: true),
