@@ -12,34 +12,60 @@ class ChecklistQRScannerPage extends StatefulWidget {
 }
 
 class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
-  final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates,
-    facing: CameraFacing.back,
-  );
+  late MobileScannerController _controller;
   
   bool _isProcessing = false;
   bool _hasPermission = false;
+  bool _permissionDenied = false;
+  String? _debugMessage;
 
   @override
   void initState() {
     super.initState();
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      facing: CameraFacing.back,
+    );
     _checkCameraPermission();
   }
 
   Future<void> _checkCameraPermission() async {
-    final status = await Permission.camera.status;
-    if (status.isGranted) {
+    try {
+      final status = await Permission.camera.status;
+      print('Camera permission status: $status');
+      
+      if (status.isGranted) {
+        setState(() {
+          _hasPermission = true;
+          _permissionDenied = false;
+          _debugMessage = 'Camera permission granted';
+        });
+      } else if (status.isDenied) {
+        final result = await Permission.camera.request();
+        print('Camera permission request result: $result');
+        setState(() {
+          _hasPermission = result.isGranted;
+          _permissionDenied = !result.isGranted;
+          _debugMessage = 'Camera permission request: ${result.isDenied ? 'Denied' : 'Granted'}';
+        });
+      } else if (status.isPermanentlyDenied) {
+        setState(() {
+          _hasPermission = false;
+          _permissionDenied = true;
+          _debugMessage = 'Camera permission permanently denied. Open app settings.';
+        });
+        openAppSettings();
+      } else {
+        setState(() {
+          _hasPermission = false;
+          _permissionDenied = true;
+          _debugMessage = 'Camera permission status unknown: $status';
+        });
+      }
+    } catch (e) {
+      print('Error checking camera permission: $e');
       setState(() {
-        _hasPermission = true;
-      });
-    } else if (status.isDenied) {
-      final result = await Permission.camera.request();
-      setState(() {
-        _hasPermission = result.isGranted;
-      });
-    } else {
-      setState(() {
-        _hasPermission = false;
+        _debugMessage = 'Error: $e';
       });
     }
   }
@@ -47,31 +73,42 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
   Future<void> _handleQRCode(String? code) async {
     if (code == null || _isProcessing) return;
 
+    print('QR Code detected: $code');
+    
     setState(() {
       _isProcessing = true;
+      _debugMessage = 'Processing QR code: $code';
     });
 
     try {
       // Extract location ID from QR code
-      // QR code format can be: location_id:123 or just "123"
-      int? locationId;
-      if (code.contains(':')) {
-        final parts = code.split(':');
+      // QR code format can be: LOC-47929 or location_id:LOC-47929
+      String? locationId;
+      
+      final trimmedCode = code.trim();
+      
+      if (trimmedCode.contains(':')) {
+        final parts = trimmedCode.split(':');
         if (parts.length > 1) {
-          locationId = int.tryParse(parts[1]);
+          locationId = parts[1].trim();
+          print('Extracted location ID from format: $locationId');
         }
       } else {
-        locationId = int.tryParse(code);
+        locationId = trimmedCode;
+        print('Extracted location ID directly: $locationId');
       }
 
-      if (locationId == null) {
-        _showError('Invalid QR code format. Please scan a valid location QR code.');
+      if (locationId == null || locationId.isEmpty) {
+        _showError('Invalid QR code format. Expected: LOC-XXXXX or location_id:LOC-XXXXX. Got: $code');
         setState(() {
           _isProcessing = false;
+          _debugMessage = 'Invalid format: $code';
         });
         return;
       }
 
+      print('Valid location ID extracted: $locationId');
+      
       // Stop scanner
       await _controller.stop();
 
@@ -85,9 +122,11 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
         );
       }
     } catch (e) {
+      print('Error processing QR code: $e');
       _showError('Error processing QR code: ${e.toString()}');
       setState(() {
         _isProcessing = false;
+        _debugMessage = 'Error: $e';
       });
     }
   }
@@ -98,7 +137,7 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -137,16 +176,40 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Please grant camera permission to scan QR codes.',
+                Text(
+                  _permissionDenied
+                      ? 'Camera permission was denied. Please grant it in app settings.'
+                      : 'Please grant camera permission to scan QR codes.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: Colors.grey),
                 ),
+                if (_debugMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Text(
+                      'Debug: $_debugMessage',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 ElevatedButton(
                   onPressed: () async {
-                    await Permission.camera.request();
-                    await _checkCameraPermission();
+                    if (_permissionDenied) {
+                      openAppSettings();
+                    } else {
+                      await Permission.camera.request();
+                      await _checkCameraPermission();
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8B5CF6),
@@ -156,7 +219,9 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
                       vertical: 16,
                     ),
                   ),
-                  child: const Text('Grant Permission'),
+                  child: Text(
+                    _permissionDenied ? 'Open Settings' : 'Grant Permission',
+                  ),
                 ),
               ],
             ),
@@ -183,12 +248,46 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
             controller: _controller,
             onDetect: (capture) {
               final List<Barcode> barcodes = capture.barcodes;
+              print('Barcodes detected: ${barcodes.length}');
               for (final barcode in barcodes) {
+                print('Barcode value: ${barcode.rawValue}, Type: ${barcode.type}');
                 if (barcode.rawValue != null) {
                   _handleQRCode(barcode.rawValue);
                   break;
                 }
               }
+            },
+            errorBuilder: (context, error, child) {
+              print('Scanner error: $error');
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text('Scan QR Code'),
+                  backgroundColor: const Color(0xFF8B5CF6),
+                ),
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 64,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Camera Error: $error',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Go Back'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             },
           ),
           // Overlay with scanning area
@@ -215,7 +314,7 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      'Position Location QR code within the frame',
+                      'Position Location QR Code within the frame',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -330,4 +429,3 @@ class ScannerOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

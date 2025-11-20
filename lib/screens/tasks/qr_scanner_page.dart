@@ -53,18 +53,20 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
     try {
       // Extract location ID from QR code
-      // QR code format can be: location_id:123 or just "123"
-      int? locationId;
-      if (code.contains(':')) {
-        final parts = code.split(':');
+      // QR code format can be: LOC-47929 or location_id:LOC-47929
+      String? locationId;
+      final trimmedCode = code.trim();
+      
+      if (trimmedCode.contains(':')) {
+        final parts = trimmedCode.split(':');
         if (parts.length > 1) {
-          locationId = int.tryParse(parts[1]);
+          locationId = parts[1].trim();
         }
       } else {
-        locationId = int.tryParse(code);
+        locationId = trimmedCode;
       }
 
-      if (locationId == null) {
+      if (locationId == null || locationId.isEmpty) {
         _showError('Invalid QR code format. Please scan a valid location QR code.');
         setState(() {
           _isProcessing = false;
@@ -72,30 +74,22 @@ class _QRScannerPageState extends State<QRScannerPage> {
         return;
       }
 
-      // Verify location exists and get details
-      final locationResult = await TaskService.getLocation(locationId);
-      
-      if (!locationResult['success']) {
-        _showError(locationResult['message'] ?? 'Location not found');
-        setState(() {
-          _isProcessing = false;
-        });
-        return;
-      }
+      print('Location ID extracted: $locationId');
 
       // Stop scanner
       await _controller.stop();
 
-      // Navigate to create task page
+      // Navigate to create task page with location_id
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => CreateTaskPage(locationId: locationId!),
+            builder: (context) => CreateTaskPage(locationId: locationId),
           ),
         );
       }
     } catch (e) {
+      print('Error processing QR code: $e');
       _showError('Error processing QR code: ${e.toString()}');
       setState(() {
         _isProcessing = false;

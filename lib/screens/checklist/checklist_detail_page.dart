@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import 'create_ticket_dialog.dart';
 import '../../theme/app_theme.dart';
@@ -29,6 +30,8 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
   Map<String, bool> _expandedGroups = {}; // group_id -> expanded state
   final ScrollController _scrollController = ScrollController();
   final Map<int, Timer?> _textSaveTimers = {}; // debounce timers per text question
+  int _pendingSaveCount = 0; // Track pending saves
+  final Map<int, TextEditingController> _textControllers = {}; // TextEditingController per text question
   
   // Score calculation
   double _calculateScore() {
@@ -98,19 +101,113 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
   void initState() {
     super.initState();
     _loadChecklistDetail();
+    _loadLocalAnswers(); // Load locally saved answers
+  }
+  
+  /// Load answers saved locally from SharedPreferences
+  /// These override backend answers (unsaved changes take precedence)
+  Future<void> _loadLocalAnswers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'checklist_answers_${widget.checklistId}';
+      final savedAnswersJson = prefs.getString(key);
+      
+      if (savedAnswersJson != null) {
+        final savedAnswers = jsonDecode(savedAnswersJson) as Map<String, dynamic>;
+        bool hasChanges = false;
+        
+        savedAnswers.forEach((key, value) {
+          final questionId = int.tryParse(key);
+          if (questionId != null && value != null) {
+            final localAnswer = value as String?;
+            // Check if local answer differs from what's in memory
+            if (_answers[questionId] != localAnswer) {
+              print('Debug - Restoring local answer for question $questionId: $localAnswer');
+              _answers[questionId] = localAnswer;
+              hasChanges = true;
+            }
+          }
+        });
+        
+        // Trigger UI update if there were any changes
+        if (hasChanges && mounted) {
+          setState(() {});
+        }
+      }
+    } catch (e) {
+      print('Debug - Error loading local answers: $e');
+    }
+  }
+  
+  /// Save answers locally to SharedPreferences
+  Future<void> _saveAnswersLocally() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'checklist_answers_${widget.checklistId}';
+      final answersMap = <String, String?>{};
+      
+      _answers.forEach((questionId, answer) {
+        answersMap[questionId.toString()] = answer;
+      });
+      
+      await prefs.setString(key, jsonEncode(answersMap));
+      print('Debug - Saved answers locally for checklist ${widget.checklistId}');
+    } catch (e) {
+      print('Debug - Error saving local answers: $e');
+    }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    // Cancel any pending debounce timers
+    print('Debug - Dispose called, saving answers locally...');
+    // Cancel any pending debounce timers FIRST before saving
     for (final timer in _textSaveTimers.values) {
       timer?.cancel();
     }
+    _textSaveTimers.clear();
+    
+    // Dispose text controllers
+    for (final controller in _textControllers.values) {
+      controller.dispose();
+    }
+    _textControllers.clear();
+    
+    // Save answers synchronously using a blocking approach
+    _syncSaveAnswersLocally();
+    
+    print('Debug - Dispose completed');
     super.dispose();
+  }
+  
+  /// Synchronous save to ensure completion before dispose
+  void _syncSaveAnswersLocally() {
+    try {
+      print('Debug - Starting sync save of ${_answers.length} answers');
+      SharedPreferences.getInstance().then((prefs) {
+        final key = 'checklist_answers_${widget.checklistId}';
+        final answersMap = <String, String?>{};
+        
+        _answers.forEach((questionId, answer) {
+          print('Debug - Saving answer for question $questionId: $answer');
+          answersMap[questionId.toString()] = answer;
+        });
+        
+        prefs.setString(key, jsonEncode(answersMap)).then((_) {
+          print('Debug - ✅ Successfully saved ${answersMap.length} answers locally for checklist ${widget.checklistId}');
+        }).catchError((e) {
+          print('Debug - ❌ Error saving answers: $e');
+        });
+      }).catchError((e) {
+        print('Debug - ❌ Error getting SharedPreferences: $e');
+      });
+    } catch (e) {
+      print('Debug - ❌ Sync save error: $e');
+    }
   }
 
   Future<void> _loadChecklistDetail() async {
+    print('Debug - _loadChecklistDetail started');
     setState(() {
       _isLoading = true;
       _error = null;
@@ -133,22 +230,25 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+            print('Debug - Backend loaded, current _answers before update: $_answers');
             setState(() {
               _checklistData = data['data'];
               _isLoading = false;
               
-              // Pre-fill existing answers
+              // Pre-fill existing answers from backend
               if (_checklistData!['answers'] != null) {
                 final answersData = _checklistData!['answers'];
                 // Backend can return either array [] or object {}
                 if (answersData is Map) {
                   final answers = answersData as Map<String, dynamic>;
+                  print('Debug - Loading ${answers.length} answers from backend');
                   answers.forEach((key, value) {
                     final questionId = int.tryParse(key);
                     if (questionId != null && value != null) {
                       if (value is Map) {
                         // Store answers in lowercase for consistency
                         final answerValue = value['value']?.toString();
+                        print('Debug - Backend answer for question $questionId: $answerValue');
                         _answers[questionId] = answerValue?.toLowerCase();
                       }
                     }
@@ -156,6 +256,7 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                 }
                 // If it's an array, it means no answers yet
               }
+              print('Debug - After backend load, _answers: $_answers');
             });
         } else {
           throw Exception(data['message'] ?? 'Failed to load checklist');
@@ -313,6 +414,9 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
 
   Future<void> _saveAnswer(int questionId, String value, {bool showSuccess = true}) async {
     try {
+      _pendingSaveCount++;
+      print('Debug - Pending saves increased to: $_pendingSaveCount');
+      
       final userData = await AuthService.getUserData();
       if (userData == null || userData['token'] == null) {
         throw Exception('No authentication token found');
@@ -350,6 +454,9 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+          // Save answer locally after successful backend save
+          await _saveAnswersLocally();
+          
           // Check if checklist was completed
           final checklistCompleted = data['data']?['checklist_completed'] == true;
           
@@ -420,6 +527,9 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
           ),
         );
       }
+    } finally {
+      _pendingSaveCount--;
+      print('Debug - Pending saves decreased to: $_pendingSaveCount');
     }
   }
 
@@ -963,7 +1073,16 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                                  statusTitle.toLowerCase().contains('complete');
     final shouldDisable = isChecklistCompleted || (hasTicket && !isTicketCompleted);
     
+    // Create or reuse TextEditingController for this question
+    if (!_textControllers.containsKey(questionId)) {
+      _textControllers[questionId] = TextEditingController(
+        text: _answers[questionId] ?? '',
+      );
+      print('Debug - Created TextEditingController for question $questionId with initial value: "${_answers[questionId]}"');
+    }
+    
     return TextField(
+      controller: _textControllers[questionId],
       enabled: !shouldDisable,
       decoration: InputDecoration(
         labelText: 'Your Answer',
@@ -974,19 +1093,20 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       ),
       maxLines: 3,
       onChanged: (value) {
-        setState(() {
-          _answers[questionId] = value;
-        });
+        print('Debug - Text changed for question $questionId: "$value"');
+        _answers[questionId] = value;
         // Debounce save to avoid excessive requests while typing
         _textSaveTimers[questionId]?.cancel();
-        _textSaveTimers[questionId] = Timer(const Duration(milliseconds: 800), () {
-          _saveAnswer(questionId, _answers[questionId] ?? '');
+        _textSaveTimers[questionId] = Timer(const Duration(milliseconds: 500), () {
+          print('Debug - Debounce timer fired for question $questionId, saving: "${_answers[questionId]}"');
+          _saveAnswer(questionId, _answers[questionId] ?? '', showSuccess: false);
         });
       },
       onSubmitted: (value) {
         // Immediate save when user submits from keyboard
+        print('Debug - Text submitted for question $questionId: "$value"');
         _textSaveTimers[questionId]?.cancel();
-        _saveAnswer(questionId, value);
+        _saveAnswer(questionId, value, showSuccess: false);
       },
     );
   }

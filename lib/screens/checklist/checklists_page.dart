@@ -741,7 +741,7 @@ class ChecklistsBackgroundPainter extends CustomPainter {
 
 // New page for displaying checklists filtered by location
 class ChecklistsByLocationPage extends StatefulWidget {
-  final int locationId;
+  final String locationId;
   
   const ChecklistsByLocationPage({super.key, required this.locationId});
 
@@ -820,9 +820,67 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
         throw Exception('No authentication token found');
       }
 
-      // Fetch checklists filtered by location_id
+      print('Loading checklists for location: ${widget.locationId}');
+
+      // First, fetch location details to get the location name
+      String? fetchedLocationName;
+      try {
+        // Try to fetch location by ID
+        var locationUrl = '${AuthService.baseUrl}/api/locations/${widget.locationId}';
+        print('Fetching location from: $locationUrl');
+        
+        final locationResponse = await http.get(
+          Uri.parse(locationUrl),
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer ${userData['token']}',
+          },
+        ).timeout(const Duration(seconds: 10));
+
+        print('Location response status: ${locationResponse.statusCode}');
+        print('Location response body: ${locationResponse.body}');
+
+        if (locationResponse.statusCode == 200) {
+          final locationData = jsonDecode(locationResponse.body);
+          print('Location data: $locationData');
+          
+          if (locationData['success'] == true && locationData['data'] != null) {
+            final data = locationData['data'];
+            fetchedLocationName = data['title'] ?? 
+                                 data['name'] ?? 
+                                 data['location_id'];
+            
+            if (fetchedLocationName != null && fetchedLocationName!.isNotEmpty) {
+              print('✓ Fetched location name: $fetchedLocationName');
+            } else {
+              print('✗ Location data had no title/name field');
+              fetchedLocationName = null;
+            }
+          } else {
+            print('✗ Location API returned success false or no data');
+            fetchedLocationName = null;
+          }
+        } else {
+          print('✗ Location fetch failed with status: ${locationResponse.statusCode}');
+          fetchedLocationName = null;
+        }
+      } catch (e) {
+        print('✗ Error fetching location details: $e');
+        fetchedLocationName = null;
+      }
+      
+      // If location name not found, it will be set from checklists response below
+      print('Location name after API call: $fetchedLocationName');
+
+      // Fetch checklists filtered by location_id from the API
+      // The API now supports location_id parameter for filtering
+      final Uri checklistUri = Uri.parse('${AuthService.baseUrl}/api/auditor/checklists')
+          .replace(queryParameters: {'location_id': widget.locationId});
+      
+      print('Fetching from: $checklistUri');
+      
       final response = await http.get(
-        Uri.parse('${AuthService.baseUrl}/api/auditor/checklists?location_id=${widget.locationId}'),
+        checklistUri,
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer ${userData['token']}',
@@ -832,9 +890,39 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+          final checklists = (data['data']['checklists'] as List?) ?? [];
+          print('Checklists received from API for location ${widget.locationId}: ${checklists.length}');
+          
+          // If location name not fetched from API, try to get it from the first checklist's location field
+          String? finalLocationName = fetchedLocationName;
+          if (finalLocationName == null && checklists.isNotEmpty) {
+            try {
+              final firstChecklist = checklists.first as Map<String, dynamic>;
+              print('First checklist data: $firstChecklist');
+              
+              // Try to get location from the checklist's location field (formatted as "WORKSPACE • PROJECT")
+              final location = firstChecklist['location'];
+              if (location != null && location.toString().isNotEmpty) {
+                finalLocationName = location.toString();
+                print('✓ Got location name from checklist location field: $finalLocationName');
+              } else {
+                // Fallback to project title
+                final project = firstChecklist['project'] as Map<String, dynamic>?;
+                if (project != null && project['title'] != null) {
+                  finalLocationName = project['title'];
+                  print('✓ Got location name from project title: $finalLocationName');
+                }
+              }
+            } catch (e) {
+              print('Could not extract location name from checklist: $e');
+            }
+          }
+          
           setState(() {
-            _checklists = (data['data']['checklists'] as List?) ?? [];
-            _locationName = data['data']['location_name'] ?? 'Unknown Location';
+            _checklists = checklists;
+            // Use fetched location name, then from checklist location/project, fallback to locationId
+            _locationName = finalLocationName ?? widget.locationId;
+            print('Final location name: $_locationName');
             _loading = false;
             _refreshing = false;
           });
@@ -845,6 +933,7 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
         throw Exception('Server error: ${response.statusCode}');
       }
     } catch (e) {
+      print('Error loading checklists: $e');
       setState(() {
         _error = e.toString();
         _loading = false;

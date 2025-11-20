@@ -60,7 +60,7 @@ class TaskService {
   }
 
   // Get form data for creating a task (statuses, priorities, users)
-  static Future<Map<String, dynamic>> getCreateData(int locationId) async {
+  static Future<Map<String, dynamic>> getCreateData(dynamic locationId) async {
     try {
       final token = await _getToken();
       if (token == null) {

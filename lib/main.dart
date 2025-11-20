@@ -10,6 +10,7 @@ import 'screens/tasks/location_input_page.dart';
 import 'screens/tasks/tasks_list_page.dart';
 import 'screens/tickets/tickets_list_page.dart';
 import 'theme/app_theme.dart';
+import 'utils/route_observer.dart';
 
 void main() {
   runApp(const MyApp());
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
         );
       },
       home: const AuthWrapper(),
+      navigatorObservers: [routeObserver],
       routes: {
         '/login': (context) => const LoginPage(),
         '/pin-login': (context) => const PinLoginPage(),

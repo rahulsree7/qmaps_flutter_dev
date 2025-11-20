@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../services/task_service.dart';
 
 class CreateTaskPage extends StatefulWidget {
-  final int locationId;
+  final dynamic locationId; // Can be int or String (location_id like "LOC-47929")
 
   const CreateTaskPage({super.key, required this.locationId});
 
@@ -427,6 +427,22 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
       base64Images.add('data:image/$mimeType;base64,$base64String');
     }
 
+    // Get project_id from form data (it's the actual integer ID from the backend)
+    final projectId = _formData?['location']?['id'];
+    
+    if (projectId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Project ID not found'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
+    
     final taskData = {
       'title': _titleController.text.trim(),
       'status_id': _selectedStatusId,
@@ -435,7 +451,7 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
       'due_date': _dueDate!.toIso8601String().split('.')[0],
       'description': _descriptionController.text.trim(),
       'note': _noteController.text.trim(),
-      'project_id': widget.locationId,
+      'project_id': projectId, // Use the actual project ID from backend response
       'bial_users_id': _selectedBialUsers.isNotEmpty ? _selectedBialUsers : null,
       'concessionare_users_id': _selectedConcessionareUsers.isNotEmpty ? _selectedConcessionareUsers : null,
       'images': base64Images.isNotEmpty ? base64Images : null,
