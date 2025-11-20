@@ -145,6 +145,38 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
            statusTitle.toLowerCase().contains('complete');
   }
   
+  /// Get question data by question ID
+  Map<String, dynamic>? _getQuestionData(int questionId) {
+    if (_checklistData == null) return null;
+    
+    final checklist = _checklistData!['checklist'] as Map<String, dynamic>?;
+    final theme = checklist?['theme'] as Map<String, dynamic>?;
+    final groups = theme?['groups'] as List<dynamic>? ?? [];
+    
+    for (var group in groups) {
+      final groupData = group as Map<String, dynamic>;
+      final questions = groupData['questions'] as List<dynamic>? ?? [];
+      
+      for (var question in questions) {
+        final questionData = question as Map<String, dynamic>;
+        if (questionData['id'] == questionId) {
+          return questionData;
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /// Get question score by question ID
+  double? _getQuestionScore(int questionId) {
+    final questionData = _getQuestionData(questionId);
+    if (questionData != null) {
+      return (questionData['score'] as num?)?.toDouble();
+    }
+    return null;
+  }
+  
   /// Load answers saved locally from SharedPreferences
   /// These override backend answers (unsaved changes take precedence)
   Future<void> _loadLocalAnswers() async {
@@ -405,12 +437,23 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         'Authorization': 'Bearer ${userData['token']}',
       });
 
+      // Get question score (matching web logic: includes score in save request)
+      final questionScore = _getQuestionScore(questionId);
+      
       // Add form fields
       request.fields['checklist_id'] = widget.checklistId.toString();
       request.fields['question_id'] = questionId.toString();
       request.fields['value'] = value;
       request.fields['create_ticket'] = '1';
       request.fields['note'] = ticketData['note'] as String? ?? '';
+      
+      // Include score if available (matching web: score is sent in save request)
+      if (questionScore != null) {
+        request.fields['score'] = questionScore.toString();
+        print('Debug - Including score in ticket save: $questionScore');
+      } else {
+        print('Debug - Warning: Question score not found for question $questionId');
+      }
 
       // Set issue_created flag based on answer
       if (value.toLowerCase() == 'no') {
@@ -503,12 +546,23 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         throw Exception('No authentication token found');
       }
 
+      // Get question score (matching web logic: includes score in save request)
+      final questionScore = _getQuestionScore(questionId);
+      
       // Prepare the request body
       final body = <String, String>{
         'checklist_id': widget.checklistId.toString(),
         'question_id': questionId.toString(),
         'value': value,
       };
+
+      // Include score if available (matching web: score is sent in save request)
+      if (questionScore != null) {
+        body['score'] = questionScore.toString();
+        print('Debug - Including score: $questionScore');
+      } else {
+        print('Debug - Warning: Question score not found for question $questionId');
+      }
 
       // Set issue_created flag based on answer
       if (value.toLowerCase() == 'no') {
@@ -907,28 +961,28 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
     // Parse comma-separated options
     final options = optionsString.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
     
-    // Check if this is a Yes/No question for toggle switch
-    final isYesNoQuestion = options.length == 2 && 
-                           options.any((o) => o.toLowerCase() == 'yes') && 
-                           options.any((o) => o.toLowerCase() == 'no');
+    // Check if this is a Yes/No/N/A question for toggle switch (matching second image design)
+    final isToggleQuestion = options.length >= 2 && options.length <= 3 &&
+                            (options.any((o) => o.toLowerCase() == 'yes') || 
+                             options.any((o) => o.toLowerCase() == 'no') ||
+                             options.any((o) => o.toLowerCase() == 'n/a' || o.toLowerCase() == 'na'));
     
-    if (isYesNoQuestion) {
-      // Use separate toggle buttons for Yes/No questions
-      // Match web logic: compare case-insensitively but store as-is
+    if (isToggleQuestion) {
+      // Match second image: Simple toggle switches with gray background, white handle on left, text on right
       final currentAnswer = _answers[questionId]?.toString().trim().toLowerCase();
-      final isYesSelected = currentAnswer == 'yes';
-      final isNoSelected = currentAnswer == 'no';
       
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          // YES Toggle Switch
-          GestureDetector(
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: options.map((option) {
+          final trimmedOption = option.trim();
+          final optionLower = trimmedOption.toLowerCase();
+          final isSelected = currentAnswer == optionLower;
+          
+          return GestureDetector(
             onTap: disabled ? null : () async {
               // Toggle: if already selected, deselect it
-              // Match web logic: store trimmed option value (not lowercase)
-              final yesOption = options.firstWhere((o) => o.trim().toLowerCase() == 'yes', orElse: () => 'yes');
-              final newAnswer = isYesSelected ? null : yesOption.trim();
+              final newAnswer = isSelected ? null : trimmedOption;
               setState(() {
                 if (newAnswer == null) {
                   _answers.remove(questionId);
@@ -939,195 +993,82 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
               
               if (newAnswer != null) {
                 await _scrollToNextQuestion(questionId);
-                _saveAnswer(questionId, newAnswer);
-              }
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              width: 90,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: isYesSelected && !disabled
-                    ? const LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [Color(0xFF10B981), Color(0xFF059669)],
-                      )
-                    : null,
-                color: !isYesSelected
-                    ? (disabled ? Colors.grey.shade300 : Colors.grey.shade200)
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  // YES Label (positioned to avoid knob)
-                  Positioned.fill(
-                    child: Align(
-                      alignment: isYesSelected ? Alignment.centerLeft : Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                        child: Text(
-                          'YES',
-                          style: TextStyle(
-                            color: isYesSelected && !disabled
-                                ? Colors.white
-                                : Colors.grey.shade600,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Sliding Knob with checkmark
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    left: isYesSelected ? 90 - 36 : 3,
-                    top: 3,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: isYesSelected
-                          ? const Icon(
-                              Icons.check,
-                              color: Color(0xFF10B981),
-                              size: 20,
-                            )
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // NO Toggle Switch
-          GestureDetector(
-            onTap: disabled ? null : () async {
-              // Toggle: if already selected, deselect it
-              // Match web logic: store trimmed option value (not lowercase)
-              final noOption = options.firstWhere((o) => o.trim().toLowerCase() == 'no', orElse: () => 'no');
-              final newAnswer = isNoSelected ? null : noOption.trim();
-              setState(() {
-                if (newAnswer == null) {
-                  _answers.remove(questionId);
+                
+                if (optionLower == 'no') {
+                  print('Debug - "No" selected for question: $questionId');
+                  print('Debug - Question data: $question');
+                  _showCreateTicketDialog(question);
                 } else {
-                  _answers[questionId] = newAnswer;
+                  _saveAnswer(questionId, newAnswer);
                 }
-              });
-              
-              if (newAnswer != null && newAnswer.trim().toLowerCase() == 'no') {
-                await _scrollToNextQuestion(questionId);
-                print('Debug - "No" selected for question: $questionId');
-                print('Debug - Question data: $question');
-                _showCreateTicketDialog(question);
               }
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
-              width: 90,
-              height: 40,
+              width: 100,
+              height: 36,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: isNoSelected && !disabled
-                    ? const LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-                      )
-                    : null,
-                color: !isNoSelected
-                    ? (disabled ? Colors.grey.shade300 : Colors.grey.shade200)
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+                color: disabled 
+                    ? Colors.grey.shade300 
+                    : (isSelected ? const Color(0xFF3B82F6) : Colors.grey.shade200), // Blue when selected
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: disabled
+                      ? Colors.grey.shade400
+                      : (isSelected ? const Color(0xFF3B82F6) : Colors.grey.shade300),
+                  width: 1,
+                ),
               ),
               child: Stack(
                 children: [
-                  // NO Label (positioned to avoid knob)
+                  // Text label on the right side (always visible, matching second image)
                   Positioned.fill(
                     child: Align(
-                      alignment: isNoSelected ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: Alignment.centerRight,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        padding: const EdgeInsets.only(right: 12.0),
                         child: Text(
-                          'NO',
+                          trimmedOption.toUpperCase(),
                           style: TextStyle(
-                            color: isNoSelected && !disabled
-                                ? Colors.white
-                                : Colors.grey.shade600,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                            color: disabled
+                                ? Colors.grey.shade600
+                                : (isSelected ? Colors.white : Colors.grey.shade700),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  // Sliding Knob with checkmark
+                  // White circular handle - on left when unselected, moves right when selected
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
-                    left: isNoSelected ? 3 : 90 - 36,
-                    top: 3,
+                    left: isSelected ? 100 - 34 : 2, // Moves to right when selected
+                    top: 2,
                     child: Container(
-                      width: 34,
-                      height: 34,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),
-                      child: isNoSelected
-                          ? const Icon(
-                              Icons.close,
-                              color: Color(0xFFEF4444),
-                              size: 20,
-                            )
-                          : null,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+          );
+        }).toList(),
       );
     }
     
