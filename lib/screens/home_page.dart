@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import 'checklist/checklist_qr_scanner_page.dart';
 import 'tasks/qr_scanner_page.dart';
 import '../utils/route_observer.dart';
+import '../widgets/bottom_navigation_bar.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,8 +20,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _bgController;
+  late AnimationController _headerController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _headerAnimation;
+  int _currentIndex = 0; // Track current bottom nav index
   String _userName = '';
   String _userEmail = '';
   int _pendingTasks = 0;
@@ -36,6 +40,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
   final List<String> _trendMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
   List<_LegendData> _ticketSegments = [];
   List<_LegendData> _taskSegments = [];
+  final ScrollController _scrollController = ScrollController();
+  bool _headerVisible = true;
+  double _lastScrollOffset = 0;
   
   void _showAddMenu() {
     showModalBottomSheet(
@@ -73,7 +80,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
                 ),
               ),
               title: const Text(
-                'Add Checklist',
+                'Audit Store',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -178,7 +185,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
   Widget _buildDonutCard(String headline, List<_LegendData> segments) {
     if (segments.isEmpty) {
       return Container(
-        height: 380,
+        height: 280,
         decoration: BoxDecoration(
           color: Colors.grey[100],
           borderRadius: BorderRadius.circular(20),
@@ -193,7 +200,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
     final lowest = segments.reduce((curr, next) => curr.value <= next.value ? curr : next);
 
     return Container(
-      height: 380,
+      height: 280,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -327,9 +334,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
       vsync: this,
     );
     _bgController = AnimationController(
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 6),
       vsync: this,
     )..repeat();
+    _headerController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
     
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
@@ -339,10 +350,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
     
+    _headerAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeInOut),
+    );
+    
     _fadeController.forward();
     _slideController.forward();
+    _scrollController.addListener(_handleScroll);
     _loadUserData();
     _loadSummaryData();
+  }
+
+  void _handleScroll() {
+    final currentScroll = _scrollController.offset;
+    
+    if (currentScroll > _lastScrollOffset && currentScroll > 50) {
+      // Scrolling down - hide header
+      if (_headerVisible) {
+        setState(() {
+          _headerVisible = false;
+        });
+        _headerController.forward();
+      }
+    } else if (currentScroll < _lastScrollOffset) {
+      // Scrolling up - show header
+      if (!_headerVisible) {
+        setState(() {
+          _headerVisible = true;
+        });
+        _headerController.reverse();
+      }
+    }
+    
+    _lastScrollOffset = currentScroll;
   }
 
   @override
@@ -475,6 +515,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
     _fadeController.dispose();
     _slideController.dispose();
     _bgController.dispose();
+    _headerController.dispose();
+    _scrollController.dispose();
     routeObserver.unsubscribe(this);
     super.dispose();
   }
@@ -503,14 +545,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
           SafeArea(
             child: Column(
               children: [
-                // Fixed header at the top
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
+                // Animated header at the top - Collapse completely when hidden
+                SizeTransition(
+                  sizeFactor: Tween<double>(begin: 1.0, end: 0.0).animate(
+                    CurvedAnimation(parent: _headerController, curve: Curves.easeInOut),
+                  ),
+                  axisAlignment: -1.0,
+                  child: FadeTransition(
+                    opacity: Tween<double>(begin: 1.0, end: 0.0).animate(
+                      CurvedAnimation(parent: _headerController, curve: Curves.easeInOut),
+                    ),
+                    child: Container(
+                      color: Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 8.0),
                   child: _buildHeaderSection(context),
+                      ),
+                    ),
+                  ),
                 ),
                 // Scrollable content below
                 Expanded(
                   child: SingleChildScrollView(
+                    controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                     child: AnimatedBuilder(
                       animation: _fadeAnimation,
@@ -533,7 +590,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
                                 const SizedBox(height: 24),
                                 // User info section at bottom
                                 _buildUserInfoSection(),
-                                const SizedBox(height: 100), // Space for FAB
+                                const SizedBox(height: 20), // Space for bottom nav
                               ],
                             ),
                           ),
@@ -547,8 +604,204 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
           ),
         ],
       ),
-      floatingActionButton: _buildFloatingActionButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildBottomNavigationBarOld() {
+    return SafeArea(
+      top: false,
+      child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+                  boxShadow: [
+                    BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+                    ),
+                  ],
+                ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildBottomNavItem(
+                icon: Icons.home_outlined,
+                label: 'Home',
+                index: 0,
+                isActive: _currentIndex == 0,
+              ),
+              _buildBottomNavItem(
+                icon: Icons.checklist_rounded,
+                label: 'Checklists',
+                index: 1,
+                isActive: _currentIndex == 1,
+              ),
+              // Central elevated + button
+              _buildCentralAddButton(),
+              _buildBottomNavItem(
+                icon: Icons.confirmation_num_outlined,
+                label: 'Tickets',
+                index: 3,
+                isActive: _currentIndex == 3,
+              ),
+              _buildBottomNavItem(
+                icon: Icons.person_outline_rounded,
+                label: 'Profile',
+                index: 4,
+                isActive: _currentIndex == 4,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCentralAddButton() {
+    return GestureDetector(
+      onTap: _showAddMenu,
+      child: Container(
+        width: 56,
+        height: 56,
+        margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF8B5CF6),
+              const Color(0xFF7C3AED),
+            ],
+          ),
+          shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+              color: const Color(0xFF8B5CF6).withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white,
+          size: 28,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+    required bool isActive,
+    VoidCallback? onTap,
+    bool badge = false,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap ?? () {
+          setState(() {
+            _currentIndex = index;
+          });
+          // Handle navigation based on index
+          switch (index) {
+            case 0:
+              // Already on home
+              break;
+            case 1:
+              // Navigate to Checklists
+              Navigator.pushNamed(context, '/checklists');
+              break;
+            case 3:
+              // Navigate to Tickets
+              Navigator.pushNamed(context, '/tickets');
+              break;
+            case 4:
+              // Navigate to Profile (placeholder - can be implemented later)
+              // Navigator.pushNamed(context, '/profile');
+              break;
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+              // Active indicator line
+              if (isActive)
+                Container(
+                  width: 24,
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6),
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                )
+              else
+                const SizedBox(height: 6),
+              // Icon with badge
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    color: isActive ? const Color(0xFF3B82F6) : Colors.grey[400],
+                    size: 24,
+                  ),
+                  if (badge && !isActive)
+                    Positioned(
+                      right: -6,
+                      top: -4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: const Text(
+                          '14',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              // Label
+                    Text(
+                label,
+                      style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: isActive ? const Color(0xFF3B82F6) : Colors.grey[400],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 
@@ -557,118 +810,52 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
     final dateStr = "${now.day.toString().padLeft(2, '0')} ${_getMonthName(now.month)} ${now.year.toString().substring(2)}";
     final dayStr = _getDayName(now.weekday);
     
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left side - Hamburger menu and date
-          Row(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+        // Left side - Logo (Horizontal rectangular like QMAPS branding)
               Container(
+          width: 100,
+          height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.black87),
-                  onPressed: () {},
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      dateStr,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      dayStr,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
           ),
-          
-          // Right side - Notifications, logout and logo
-          Row(
-            children: [
-              _buildHeaderIconButton(
-                icon: Icons.notifications_outlined,
-                onPressed: () {},
-                badge: true,
-              ),
-              const SizedBox(width: 8),
-              _buildHeaderIconButton(
-                icon: Icons.logout,
-            onPressed: () => _logout(context),
-            tooltip: 'Logout',
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
                   child: Image.asset(
-                    'assets/images/icon.png',
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
+                    'assets/images/logo.png',
+              width: 100,
+              height: 36,
+              fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: const Color(0xFF1E40AF),
-                        child: const Icon(Icons.person, color: Colors.white, size: 24),
+                  child: const Icon(Icons.qr_code_2, color: Colors.white, size: 18),
                       );
                     },
                   ),
                 ),
               ),
-            ],
+        
+        // Right side - Notifications and logout
+        Row(
+          children: [
+            _buildHeaderIconButton(
+              icon: Icons.notifications_outlined,
+              onPressed: () {},
+              badge: true,
+            ),
+            const SizedBox(width: 4),
+            _buildHeaderIconButton(
+              icon: Icons.logout,
+              onPressed: () => _logout(context),
+              tooltip: 'Logout',
           ),
         ],
       ),
+      ],
     );
   }
 
@@ -681,11 +868,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -693,14 +880,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
       child: Stack(
         children: [
           IconButton(
-            icon: Icon(icon, color: Colors.black87),
+            icon: Icon(icon, color: Colors.black87, size: 18),
+            iconSize: 18,
+            padding: const EdgeInsets.all(6),
+            constraints: const BoxConstraints(
+              minWidth: 32,
+              minHeight: 32,
+            ),
             onPressed: onPressed,
             tooltip: tooltip,
           ),
           if (badge)
             Positioned(
-              right: 8,
-              top: 8,
+              right: 6,
+              top: 6,
               child: Container(
                 width: 8,
                 height: 8,
@@ -730,13 +923,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Dashboard',
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            'Dashboard',
           style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            letterSpacing: 0.5,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+              letterSpacing: 0.3,
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -781,15 +977,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
+            boxShadow: [
+              BoxShadow(
             color: Colors.black.withOpacity(0.06),
             blurRadius: 12,
-            offset: const Offset(0, 4),
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header with icon and total in single line
@@ -811,7 +1007,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
                 title,
                 style: const TextStyle(
                       fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                   color: Color(0xFF1A1A1A),
                 ),
               ),
@@ -820,15 +1016,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
               // Total count on the right
           Text(
             total.toString(),
-            style: TextStyle(
+                style: TextStyle(
                   fontSize: 22,
               fontWeight: FontWeight.w900,
               color: color,
             ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 8),
           // Pending and Completed breakdown - single line
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -846,7 +1042,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
                   const SizedBox(width: 4),
                   Text(
                     'Pending',
-                    style: TextStyle(
+                  style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],
                       fontWeight: FontWeight.w500,
@@ -871,13 +1067,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
                       fontSize: 11,
                       color: Colors.grey[600],
                       fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
-        ],
+            ],
+        ),
+      ],
       ),
     );
   }
@@ -965,7 +1161,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
               title: 'My Checklist',
               icon: Icons.assignment_turned_in,
               color: const Color(0xFF8B5CF6),
-              onTap: () => Navigator.pushNamed(context, '/checklists'),
+              onTap: () => Navigator.pushReplacementNamed(context, '/checklists'),
             )),
             const SizedBox(width: 12),
             Expanded(child: _buildModernFeatureCard(
@@ -979,7 +1175,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
               title: 'Tickets',
               icon: Icons.confirmation_num_outlined,
               color: const Color(0xFFF59E0B),
-              onTap: () => Navigator.pushNamed(context, '/tickets'),
+              onTap: () => Navigator.pushReplacementNamed(context, '/tickets'),
             )),
           ],
         ),
@@ -991,7 +1187,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Rout
               title: 'Checklists',
               icon: Icons.checklist_rounded,
               color: const Color(0xFF10B981),
-              onTap: () => Navigator.pushNamed(context, '/checklists'),
+              onTap: () => Navigator.pushReplacementNamed(context, '/checklists'),
             )),
             const SizedBox(width: 12),
             Expanded(child: _buildModernFeatureCard(
@@ -1547,7 +1743,7 @@ class HomeBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF1E40AF).withOpacity(0.05)
+      ..color = AppTheme.primaryPurple.withOpacity(0.12)
       ..style = PaintingStyle.fill;
 
     // Draw flowing background shapes
@@ -1572,35 +1768,98 @@ class HomeBackgroundPainter extends CustomPainter {
 
     // Animated floating elements
     final pulsate = (0.5 + 0.5 * math.sin(progress * 2 * math.pi)).clamp(0.6, 1.0);
+    final pulsate2 = (0.5 + 0.5 * math.cos(progress * 2 * math.pi)).clamp(0.6, 1.0);
+    
+    // Top circles - Green
     final paint2 = Paint()
-      ..color = const Color(0xFF10B981).withOpacity(0.08 * pulsate)
+      ..color = const Color(0xFF10B981).withOpacity(0.2 * pulsate)
       ..style = PaintingStyle.fill;
 
-    final dx1 = size.width * (0.75 + 0.05 * math.sin(progress * 2 * math.pi));
-    final dy1 = size.height * (0.18 + 0.03 * math.cos(progress * 2 * math.pi));
-    canvas.drawCircle(Offset(dx1, dy1), 28 + 6 * pulsate, paint2);
+    final dx1 = size.width * (0.75 + 0.08 * math.sin(progress * 2 * math.pi));
+    final dy1 = size.height * (0.18 + 0.05 * math.cos(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx1, dy1), 40 + 12 * pulsate, paint2);
 
-    final dx2 = size.width * (0.25 + 0.04 * math.cos(progress * 2 * math.pi));
-    final dy2 = size.height * (0.82 + 0.03 * math.sin(progress * 2 * math.pi));
-    canvas.drawCircle(Offset(dx2, dy2), 22 + 6 * (1 - pulsate), paint2);
+    // Top circles - Purple
+    final paint3 = Paint()
+      ..color = AppTheme.primaryPurple.withOpacity(0.18 * pulsate2)
+      ..style = PaintingStyle.fill;
+    final dx3 = size.width * (0.15 + 0.07 * math.cos(progress * 2 * math.pi));
+    final dy3 = size.height * (0.12 + 0.04 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx3, dy3), 32 + 10 * pulsate2, paint3);
+
+    // Top circles - Teal
+    final paint4 = Paint()
+      ..color = const Color(0xFF10B981).withOpacity(0.15 * pulsate)
+      ..style = PaintingStyle.fill;
+    final dx4 = size.width * (0.55 + 0.09 * math.sin(progress * 2 * math.pi));
+    final dy4 = size.height * (0.08 + 0.06 * math.cos(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx4, dy4), 28 + 8 * pulsate, paint4);
+
+    // Top circles - Purple (smaller)
+    final paint5 = Paint()
+      ..color = AppTheme.primaryPurple.withOpacity(0.12 * pulsate2)
+      ..style = PaintingStyle.fill;
+    final dx5 = size.width * (0.9 + 0.05 * math.cos(progress * 2 * math.pi));
+    final dy5 = size.height * (0.15 + 0.05 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx5, dy5), 24 + 6 * pulsate2, paint5);
+
+    // Top circles - Green (smaller)
+    final paint6 = Paint()
+      ..color = const Color(0xFF10B981).withOpacity(0.14 * pulsate)
+      ..style = PaintingStyle.fill;
+    final dx6 = size.width * (0.35 + 0.08 * math.sin(progress * 2 * math.pi));
+    final dy6 = size.height * (0.22 + 0.04 * math.cos(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx6, dy6), 26 + 7 * pulsate, paint6);
+
+    // Bottom circles
+    final dx2 = size.width * (0.25 + 0.06 * math.cos(progress * 2 * math.pi));
+    final dy2 = size.height * (0.82 + 0.05 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx2, dy2), 35 + 10 * (1 - pulsate), paint2);
+
+    // Middle floating circle
+    final paint7 = Paint()
+      ..color = AppTheme.primaryPurple.withOpacity(0.15 * pulsate)
+      ..style = PaintingStyle.fill;
+    final dx7 = size.width * (0.5 + 0.1 * math.cos(progress * 2 * math.pi));
+    final dy7 = size.height * (0.6 + 0.08 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx7, dy7), 30 + 8 * pulsate, paint7);
 
     // Soft moving gradient blobs
     final blobPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF3B82F6).withOpacity(0.12),
-          const Color(0xFF3B82F6).withOpacity(0.0),
+          AppTheme.primaryPurple.withOpacity(0.25),
+          AppTheme.primaryPurple.withOpacity(0.05),
         ],
       ).createShader(Rect.fromCircle(
-        center: Offset(size.width * (0.4 + 0.1 * math.sin(progress * 2 * math.pi)),
-            size.height * (0.35 + 0.05 * math.cos(progress * 2 * math.pi))),
-        radius: 140,
+        center: Offset(size.width * (0.4 + 0.15 * math.sin(progress * 2 * math.pi)),
+            size.height * (0.35 + 0.08 * math.cos(progress * 2 * math.pi))),
+        radius: 120,
       ));
     canvas.drawCircle(
-      Offset(size.width * (0.4 + 0.1 * math.sin(progress * 2 * math.pi)),
-          size.height * (0.35 + 0.05 * math.cos(progress * 2 * math.pi))),
-      140,
+      Offset(size.width * (0.4 + 0.15 * math.sin(progress * 2 * math.pi)),
+          size.height * (0.35 + 0.08 * math.cos(progress * 2 * math.pi))),
+      120,
       blobPaint,
+    );
+
+    // Additional gradient blob
+    final blobPaint2 = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF10B981).withOpacity(0.2),
+          const Color(0xFF10B981).withOpacity(0.0),
+        ],
+      ).createShader(Rect.fromCircle(
+        center: Offset(size.width * (0.7 + 0.12 * math.cos(progress * 2 * math.pi)),
+            size.height * (0.65 + 0.1 * math.sin(progress * 2 * math.pi))),
+        radius: 100,
+      ));
+    canvas.drawCircle(
+      Offset(size.width * (0.7 + 0.12 * math.cos(progress * 2 * math.pi)),
+          size.height * (0.65 + 0.1 * math.sin(progress * 2 * math.pi))),
+      100,
+      blobPaint2,
     );
   }
 

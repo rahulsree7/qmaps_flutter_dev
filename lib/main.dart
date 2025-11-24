@@ -3,12 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/auth/pin_setup_page.dart';
 import 'screens/auth/pin_login_page.dart';
-import 'screens/home_page.dart';
+import 'screens/main_navigation_wrapper.dart';
 import 'services/auth_service.dart';
-import 'screens/checklist/checklists_page.dart';
 import 'screens/tasks/location_input_page.dart';
 import 'screens/tasks/tasks_list_page.dart';
-import 'screens/tickets/tickets_list_page.dart';
 import 'theme/app_theme.dart';
 import 'utils/route_observer.dart';
 
@@ -42,10 +40,10 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/pin-login': (context) => const PinLoginPage(),
-        '/home': (context) => const HomePage(),
-        '/checklists': (context) => const ChecklistsPage(),
+        '/home': (context) => const MainNavigationWrapper(initialIndex: 0),
+        '/checklists': (context) => const MainNavigationWrapper(initialIndex: 1),
         '/tasks': (context) => const TasksListPage(),
-        '/tickets': (context) => const TicketsListPage(),
+        '/tickets': (context) => const MainNavigationWrapper(initialIndex: 2),
         '/location-input': (context) => const LocationInputPage(),
       },
     );
@@ -101,7 +99,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     // If user has valid session, go to dashboard
     if (_isLoggedIn) {
       print('Debug - Going to dashboard (valid session)');
-      return const HomePage();
+      return const MainNavigationWrapper(initialIndex: 0);
     }
 
     // If PIN is set and it's not first time login, go to PIN login

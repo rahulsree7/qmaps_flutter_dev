@@ -360,7 +360,7 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                       fontWeight: FontWeight.w600,
                       color: date != null
                           ? const Color(0xFF1A1A1A)
-                          : Colors.grey[400]!,
+                          : Colors.grey[400] ?? Colors.grey,
                     ),
                   ),
                 ],
@@ -962,7 +962,7 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                                 border: Border.all(
                                   color: isSelected
                                       ? const Color(0xFF8B5CF6)
-                                      : Colors.grey[300]!,
+                                      : Colors.grey[300] ?? Colors.grey,
                                   width: 1.5,
                                 ),
                               ),
@@ -1076,7 +1076,7 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                                 border: Border.all(
                                   color: isSelected
                                       ? const Color(0xFF8B5CF6)
-                                      : Colors.grey[300]!,
+                                      : Colors.grey[300] ?? Colors.grey,
                                   width: 1.5,
                                 ),
                               ),

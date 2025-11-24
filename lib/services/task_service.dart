@@ -544,5 +544,249 @@ class TaskService {
       };
     }
   }
+
+  // Get all zones for location filter
+  static Future<Map<String, dynamic>> getZones() async {
+    try {
+      final token = await _getToken();
+      print('Debug - Token from getZones: $token');
+      if (token == null) {
+        print('Debug - No token available');
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+          'zones': []
+        };
+      }
+
+      final url = '$baseUrl/api/locations/zones';
+      print('Debug - Fetching zones from: $url');
+      print('Debug - Using token: ${token.substring(0, 20)}...');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Debug - Zones response status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Debug - Zones response: $data');
+        return {
+          'success': true,
+          'zones': data['zones'] ?? [],
+        };
+      } else {
+        print('Debug - Zones failed with status ${response.statusCode}');
+        print('Debug - Response body: ${response.body}');
+        try {
+          final errorData = jsonDecode(response.body);
+          print('Debug - Error data: $errorData');
+        } catch (e) {
+          print('Debug - Could not parse error response');
+        }
+        return {
+          'success': false,
+          'message': 'Failed to fetch zones (HTTP ${response.statusCode})',
+          'zones': []
+        };
+      }
+    } catch (e) {
+      print('Error fetching zones: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'zones': []
+      };
+    }
+  }
+
+  // Get verticals (clients) for a specific zone
+  static Future<Map<String, dynamic>> getVerticalsByZone(dynamic zoneId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+          'verticals': []
+        };
+      }
+
+      final url = '$baseUrl/api/locations/zones/$zoneId/verticals';
+      print('Debug - Fetching verticals from: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Debug - Verticals response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Debug - Verticals response: $data');
+        return {
+          'success': true,
+          'verticals': data['verticals'] ?? [],
+        };
+      } else {
+        print('Debug - Verticals failed with status ${response.statusCode}');
+        print('Debug - Response: ${response.body}');
+        return {
+          'success': false,
+          'message': 'Failed to fetch verticals (HTTP ${response.statusCode})',
+          'verticals': []
+        };
+      }
+    } catch (e) {
+      print('Error fetching verticals: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'verticals': []
+      };
+    }
+  }
+
+  // Get all verticals
+  static Future<Map<String, dynamic>> getVerticals() async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+          'verticals': []
+        };
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/locations/verticals'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'verticals': data['verticals'] ?? [],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to fetch verticals',
+          'verticals': []
+        };
+      }
+    } catch (e) {
+      print('Error fetching verticals: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'verticals': []
+      };
+    }
+  }
+
+  // Get locations for a specific vertical
+  static Future<Map<String, dynamic>> getLocationsByVertical(dynamic verticalId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+          'locations': []
+        };
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/locations/verticals/$verticalId/locations'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'locations': data['locations'] ?? [],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to fetch locations',
+          'locations': []
+        };
+      }
+    } catch (e) {
+      print('Error fetching locations: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'locations': []
+      };
+    }
+  }
+
+  // Get all locations
+  static Future<Map<String, dynamic>> getAllLocations() async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Not authenticated',
+          'locations': []
+        };
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/locations/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'locations': data['locations'] ?? [],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to fetch locations',
+          'locations': []
+        };
+      }
+    } catch (e) {
+      print('Error fetching locations: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'locations': []
+      };
+    }
+  }
 }
 

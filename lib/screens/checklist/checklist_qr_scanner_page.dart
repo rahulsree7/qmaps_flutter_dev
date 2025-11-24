@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
+import '../location_filter_page.dart';
 import 'checklists_page.dart';
 
 class ChecklistQRScannerPage extends StatefulWidget {
@@ -18,6 +20,7 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
   bool _hasPermission = false;
   bool _permissionDenied = false;
   String? _debugMessage;
+  bool _showScanner = false;
 
   @override
   void initState() {
@@ -26,11 +29,11 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
       detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
     );
-    _checkCameraPermission();
   }
 
   Future<void> _checkCameraPermission() async {
     try {
+      // Check if permission handler is available
       final status = await Permission.camera.status;
       print('Camera permission status: $status');
       
@@ -54,7 +57,11 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
           _permissionDenied = true;
           _debugMessage = 'Camera permission permanently denied. Open app settings.';
         });
-        openAppSettings();
+        try {
+          await openAppSettings();
+        } catch (e) {
+          print('Error opening app settings: $e');
+        }
       } else {
         setState(() {
           _hasPermission = false;
@@ -64,9 +71,20 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
       }
     } catch (e) {
       print('Error checking camera permission: $e');
-      setState(() {
-        _debugMessage = 'Error: $e';
-      });
+      // Handle MissingPluginException - plugin not registered
+      if (e.toString().contains('MissingPluginException')) {
+        setState(() {
+          _hasPermission = false;
+          _permissionDenied = true;
+          _debugMessage = 'Permission plugin not registered. Please rebuild the app:\n1. Stop the app\n2. Run: flutter clean\n3. Run: flutter pub get\n4. Rebuild the app';
+        });
+      } else {
+        setState(() {
+          _hasPermission = false;
+          _permissionDenied = true;
+          _debugMessage = 'Error: $e';
+        });
+      }
     }
   }
 
@@ -148,101 +166,470 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
     super.dispose();
   }
 
+  void _startQRScanning() async {
+    if (!_hasPermission) {
+      await _checkCameraPermission();
+      if (!mounted || !_hasPermission) return;
+    }
+    
+    setState(() {
+      _showScanner = true;
+    });
+  }
+
+  Widget _buildHeaderSection() {
+    return Container(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Back button
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              elevation: 0,
+              shadowColor: Colors.black.withOpacity(0.05),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => Navigator.pop(context),
+                splashColor: Colors.black.withOpacity(0.05),
+                highlightColor: Colors.black.withOpacity(0.02),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 20),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Title
+            Expanded(
+              child: Text(
+                'Select Location',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScannerHeaderSection(String title) {
+    return Container(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Back button
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              elevation: 0,
+              shadowColor: Colors.black.withOpacity(0.05),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  _controller.stop();
+                  setState(() => _showScanner = false);
+                },
+                splashColor: Colors.black.withOpacity(0.05),
+                highlightColor: Colors.black.withOpacity(0.02),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 20),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Title
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Show QR or Filter options screen
+    if (!_showScanner) {
+      return Scaffold(
+        backgroundColor: AppTheme.lightBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Custom header matching checklist page style
+              _buildHeaderSection(),
+              // Content
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 40),
+                        // Filter/Select Card (moved to top)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                final result = await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LocationFilterPage(sourceType: 'checklist'),
+                                  ),
+                                );
+                                
+                                if (result != null && mounted) {
+                                  final location = result['location'];
+                                  if (location != null) {
+                                    print('Location filter result: $location');
+                                    // Use project id (database ID) for filtering
+                                    final projectId = location['id']?.toString();
+                                    print('Extracted projectId: $projectId (type: ${projectId.runtimeType})');
+                                    print('Location object keys: ${location.keys.toList()}');
+                                    
+                                    if (projectId != null && projectId.isNotEmpty) {
+                                      print('Navigating to ChecklistsByLocationPage with projectId: $projectId');
+                                      // Navigate to checklists page with selected location (using project ID)
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ChecklistsByLocationPage(
+                                            locationId: projectId,
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      print('ERROR: Invalid project ID - projectId is null or empty');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: const Text('Invalid location ID'),
+                                          backgroundColor: AppTheme.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              splashColor: AppTheme.primaryPurple.withOpacity(0.1),
+                              highlightColor: AppTheme.primaryPurple.withOpacity(0.05),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryPurple.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.filter_list,
+                                        size: 48,
+                                        color: AppTheme.primaryPurple,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'Filter & Select',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Browse and select location from a list',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                        letterSpacing: -0.1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // OR Divider
+                        Row(
+                          children: [
+                            Expanded(child: Container(height: 1, color: Colors.grey[300])),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'OR',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Container(height: 1, color: Colors.grey[300])),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        // Scan QR Code Card (moved to bottom)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _startQRScanning,
+                              borderRadius: BorderRadius.circular(16),
+                              splashColor: AppTheme.primaryPurple.withOpacity(0.1),
+                              highlightColor: AppTheme.primaryPurple.withOpacity(0.05),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryPurple.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.qr_code_2,
+                                        size: 48,
+                                        color: AppTheme.primaryPurple,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'Scan QR Code',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Use your camera to scan location QR codes',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                        letterSpacing: -0.1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Show QR Scanner
     if (!_hasPermission) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Scan Location QR Code'),
-          backgroundColor: const Color(0xFF8B5CF6),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.camera_alt_outlined,
-                  size: 80,
-                  color: Colors.grey,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Camera Permission Required',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _permissionDenied
-                      ? 'Camera permission was denied. Please grant it in app settings.'
-                      : 'Please grant camera permission to scan QR codes.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (_debugMessage != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
+        backgroundColor: AppTheme.lightBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Custom header
+              _buildScannerHeaderSection('Scan Location QR Code'),
+              // Content
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.camera_alt_outlined,
+                          size: 80,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Camera Permission Required',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _permissionDenied
+                              ? 'Camera permission was denied. Please grant it in app settings.'
+                              : 'Please grant camera permission to scan QR codes.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                        if (_debugMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Text(
+                              'Debug: $_debugMessage',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  if (_permissionDenied) {
+                                    openAppSettings();
+                                  } else {
+                                    await Permission.camera.request();
+                                    await _checkCameraPermission();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryPurple,
+                                  foregroundColor: AppTheme.textLight,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                ),
+                                child: Text(
+                                  _permissionDenied ? 'Open Settings' : 'Grant Permission',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => setState(() => _showScanner = false),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryPurple,
+                                  side: BorderSide(
+                                    color: AppTheme.primaryPurple,
+                                    width: 2,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                ),
+                                child: const Text('Go Back'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      'Debug: $_debugMessage',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (_permissionDenied) {
-                      openAppSettings();
-                    } else {
-                      await Permission.camera.request();
-                      await _checkCameraPermission();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                  child: Text(
-                    _permissionDenied ? 'Open Settings' : 'Grant Permission',
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan Location QR Code'),
-        backgroundColor: const Color(0xFF8B5CF6),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            _controller.stop();
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: Stack(
+      backgroundColor: AppTheme.lightBackground,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom header
+            _buildScannerHeaderSection('Scan Location QR Code'),
+            // Scanner content
+            Expanded(
+              child: Stack(
         children: [
           MobileScanner(
             controller: _controller,
@@ -260,11 +647,13 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
             errorBuilder: (context, error, child) {
               print('Scanner error: $error');
               return Scaffold(
-                appBar: AppBar(
-                  title: const Text('Scan QR Code'),
-                  backgroundColor: const Color(0xFF8B5CF6),
-                ),
-                body: Center(
+                backgroundColor: AppTheme.lightBackground,
+                body: SafeArea(
+                  child: Column(
+                    children: [
+                      _buildScannerHeaderSection('Scan QR Code'),
+                      Expanded(
+                        child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -281,8 +670,12 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => setState(() => _showScanner = false),
                         child: const Text('Go Back'),
+                      ),
+                    ],
+                  ),
+                        ),
                       ),
                     ],
                   ),
@@ -341,6 +734,10 @@ class _ChecklistQRScannerPageState extends State<ChecklistQRScannerPage> {
             ),
           ),
         ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -370,7 +767,7 @@ class ScannerOverlayPainter extends CustomPainter {
 
     // Draw border for scanning area
     final borderPaint = Paint()
-      ..color = const Color(0xFF8B5CF6)
+      ..color = AppTheme.primaryPurple
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 

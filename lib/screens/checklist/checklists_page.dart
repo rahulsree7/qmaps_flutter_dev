@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 import '../../services/auth_service.dart';
 import 'checklist_detail_page.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/bottom_navigation_bar.dart';
+import '../checklist/checklist_qr_scanner_page.dart';
+import '../tasks/qr_scanner_page.dart';
 
 class ChecklistsPage extends StatefulWidget {
   const ChecklistsPage({super.key});
@@ -43,7 +46,7 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
       vsync: this,
     );
     _bgController = AnimationController(
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 6),
       vsync: this,
     )..repeat();
     
@@ -165,81 +168,197 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
     );
   }
 
+  void _showAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Add Checklist option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3182CE).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.assignment_outlined,
+                  color: Color(0xFF3182CE),
+                  size: 24,
+                ),
+              ),
+              title: const Text(
+                'Audit Store',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: const Text(
+                'Create a new checklist',
+                style: TextStyle(fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ChecklistQRScannerPage(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            // Add Task option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.check_circle_outline,
+                  color: Color(0xFFF59E0B),
+                  size: 24,
+                ),
+              ),
+              title: const Text(
+                'Add Task',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: const Text(
+                'Create a new task',
+                style: TextStyle(fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const QRScannerPage(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      color: Theme.of(context).colorScheme.background,
-      child: Row(
-        children: [
-          // Back button
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Back button
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  elevation: 0,
+                  shadowColor: Colors.black.withOpacity(0.05),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => Navigator.pushReplacementNamed(context, '/home'),
+                    splashColor: Colors.black.withOpacity(0.05),
+                    highlightColor: Colors.black.withOpacity(0.02),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 20),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Title
+                Expanded(
+                  child: Text(
+                    'Checklists',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                // Sort button
+                GestureDetector(
+                  onTap: () {
+                    // TODO: Implement sort functionality
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Sort by Title',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Colors.grey[700]),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 22),
-              onPressed: () => Navigator.pop(context),
-            ),
           ),
-          const SizedBox(width: 16),
-          // Title
-          const Expanded(
-            child: Text(
-              'Checklists',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
-          // Sort button
-          GestureDetector(
-            onTap: () {
-              // TODO: Implement sort functionality
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Sort by Title',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[700],
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.grey[700]),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -270,28 +389,31 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Showing count with refresh indicator
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Showing ${_checklists.length} of ${_checklists.length} checklists',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (_refreshing)
-                const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryPurple),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Showing ${_checklists.length} of ${_checklists.length} checklists',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-            ],
+                ),
+                if (_refreshing)
+                  const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryPurple),
+                      ),
+                    ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           // Accordion groups
@@ -774,7 +896,7 @@ class ChecklistsBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.primaryPurple.withOpacity(0.05)
+      ..color = AppTheme.primaryPurple.withOpacity(0.12)
       ..style = PaintingStyle.fill;
 
     // Draw flowing background shapes
@@ -799,35 +921,98 @@ class ChecklistsBackgroundPainter extends CustomPainter {
 
     // Animated floating elements
     final pulsate = (0.5 + 0.5 * math.sin(progress * 2 * math.pi)).clamp(0.6, 1.0);
+    final pulsate2 = (0.5 + 0.5 * math.cos(progress * 2 * math.pi)).clamp(0.6, 1.0);
+    
+    // Top circles - Green
     final paint2 = Paint()
-      ..color = const Color(0xFF10B981).withOpacity(0.08 * pulsate)
+      ..color = const Color(0xFF10B981).withOpacity(0.2 * pulsate)
       ..style = PaintingStyle.fill;
 
-    final dx1 = size.width * (0.75 + 0.05 * math.sin(progress * 2 * math.pi));
-    final dy1 = size.height * (0.18 + 0.03 * math.cos(progress * 2 * math.pi));
-    canvas.drawCircle(Offset(dx1, dy1), 28 + 6 * pulsate, paint2);
+    final dx1 = size.width * (0.75 + 0.08 * math.sin(progress * 2 * math.pi));
+    final dy1 = size.height * (0.18 + 0.05 * math.cos(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx1, dy1), 40 + 12 * pulsate, paint2);
 
-    final dx2 = size.width * (0.25 + 0.04 * math.cos(progress * 2 * math.pi));
-    final dy2 = size.height * (0.82 + 0.03 * math.sin(progress * 2 * math.pi));
-    canvas.drawCircle(Offset(dx2, dy2), 22 + 6 * (1 - pulsate), paint2);
+    // Top circles - Purple
+    final paint3 = Paint()
+      ..color = AppTheme.primaryPurple.withOpacity(0.18 * pulsate2)
+      ..style = PaintingStyle.fill;
+    final dx3 = size.width * (0.15 + 0.07 * math.cos(progress * 2 * math.pi));
+    final dy3 = size.height * (0.12 + 0.04 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx3, dy3), 32 + 10 * pulsate2, paint3);
+
+    // Top circles - Teal
+    final paint4 = Paint()
+      ..color = const Color(0xFF10B981).withOpacity(0.15 * pulsate)
+      ..style = PaintingStyle.fill;
+    final dx4 = size.width * (0.55 + 0.09 * math.sin(progress * 2 * math.pi));
+    final dy4 = size.height * (0.08 + 0.06 * math.cos(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx4, dy4), 28 + 8 * pulsate, paint4);
+
+    // Top circles - Purple (smaller)
+    final paint5 = Paint()
+      ..color = AppTheme.primaryPurple.withOpacity(0.12 * pulsate2)
+      ..style = PaintingStyle.fill;
+    final dx5 = size.width * (0.9 + 0.05 * math.cos(progress * 2 * math.pi));
+    final dy5 = size.height * (0.15 + 0.05 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx5, dy5), 24 + 6 * pulsate2, paint5);
+
+    // Top circles - Green (smaller)
+    final paint6 = Paint()
+      ..color = const Color(0xFF10B981).withOpacity(0.14 * pulsate)
+      ..style = PaintingStyle.fill;
+    final dx6 = size.width * (0.35 + 0.08 * math.sin(progress * 2 * math.pi));
+    final dy6 = size.height * (0.22 + 0.04 * math.cos(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx6, dy6), 26 + 7 * pulsate, paint6);
+
+    // Bottom circles
+    final dx2 = size.width * (0.25 + 0.06 * math.cos(progress * 2 * math.pi));
+    final dy2 = size.height * (0.82 + 0.05 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx2, dy2), 35 + 10 * (1 - pulsate), paint2);
+
+    // Middle floating circle
+    final paint7 = Paint()
+      ..color = AppTheme.primaryPurple.withOpacity(0.15 * pulsate)
+      ..style = PaintingStyle.fill;
+    final dx7 = size.width * (0.5 + 0.1 * math.cos(progress * 2 * math.pi));
+    final dy7 = size.height * (0.6 + 0.08 * math.sin(progress * 2 * math.pi));
+    canvas.drawCircle(Offset(dx7, dy7), 30 + 8 * pulsate, paint7);
 
     // Soft moving gradient blobs
     final blobPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          AppTheme.primaryPurple.withOpacity(0.12),
-          AppTheme.primaryPurple.withOpacity(0.0),
+          AppTheme.primaryPurple.withOpacity(0.25),
+          AppTheme.primaryPurple.withOpacity(0.05),
         ],
       ).createShader(Rect.fromCircle(
-        center: Offset(size.width * (0.4 + 0.1 * math.sin(progress * 2 * math.pi)),
-            size.height * (0.35 + 0.05 * math.cos(progress * 2 * math.pi))),
-        radius: 140,
+        center: Offset(size.width * (0.4 + 0.15 * math.sin(progress * 2 * math.pi)),
+            size.height * (0.35 + 0.08 * math.cos(progress * 2 * math.pi))),
+        radius: 120,
       ));
     canvas.drawCircle(
-      Offset(size.width * (0.4 + 0.1 * math.sin(progress * 2 * math.pi)),
-          size.height * (0.35 + 0.05 * math.cos(progress * 2 * math.pi))),
-      140,
+      Offset(size.width * (0.4 + 0.15 * math.sin(progress * 2 * math.pi)),
+          size.height * (0.35 + 0.08 * math.cos(progress * 2 * math.pi))),
+      120,
       blobPaint,
+    );
+
+    // Additional gradient blob
+    final blobPaint2 = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF10B981).withOpacity(0.2),
+          const Color(0xFF10B981).withOpacity(0.0),
+        ],
+      ).createShader(Rect.fromCircle(
+        center: Offset(size.width * (0.7 + 0.12 * math.cos(progress * 2 * math.pi)),
+            size.height * (0.65 + 0.1 * math.sin(progress * 2 * math.pi))),
+        radius: 100,
+      ));
+    canvas.drawCircle(
+      Offset(size.width * (0.7 + 0.12 * math.cos(progress * 2 * math.pi)),
+          size.height * (0.65 + 0.1 * math.sin(progress * 2 * math.pi))),
+      100,
+      blobPaint2,
     );
   }
 
@@ -876,7 +1061,7 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
       vsync: this,
     );
     _bgController = AnimationController(
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 6),
       vsync: this,
     )..repeat();
     
@@ -971,10 +1156,15 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
 
       // Fetch checklists filtered by location_id from the API
       // The API now supports location_id parameter for filtering
+      print('=== CHECKLIST FILTER DEBUG ===');
+      print('widget.locationId: ${widget.locationId}');
+      print('widget.locationId type: ${widget.locationId.runtimeType}');
+      
       final Uri checklistUri = Uri.parse('${AuthService.baseUrl}/api/auditor/checklists')
           .replace(queryParameters: {'location_id': widget.locationId});
       
       print('Fetching from: $checklistUri');
+      print('Query parameters: ${checklistUri.queryParameters}');
       
       final response = await http.get(
         checklistUri,
@@ -1160,7 +1350,7 @@ class _ChecklistsByLocationPageState extends State<ChecklistsByLocationPage> wit
                 const Text(
                   'Checklists',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                     letterSpacing: -0.5,
