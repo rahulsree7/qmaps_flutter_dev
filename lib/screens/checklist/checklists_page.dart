@@ -585,10 +585,153 @@ class _ChecklistsPageState extends State<ChecklistsPage> with TickerProviderStat
   }
 }
 
-class _ChecklistCard extends StatelessWidget {
+class _ChecklistCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final VoidCallback? onNavigateBack;
   const _ChecklistCard({required this.item, this.onNavigateBack});
+
+  @override
+  State<_ChecklistCard> createState() => _ChecklistCardState();
+}
+
+class _ChecklistCardState extends State<_ChecklistCard> {
+  int _pendingTicketsCount = 0;
+  bool _loadingTickets = false;
+  Map<String, dynamic>? _adjustedProgress;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTicketsAndCalculateProgress();
+  }
+
+  Future<void> _loadTicketsAndCalculateProgress() async {
+    setState(() {
+      _loadingTickets = true;
+    });
+
+    try {
+      final userData = await AuthService.getUserData();
+      if (userData == null || userData['token'] == null) {
+        return;
+      }
+
+      // Fetch checklist detail to get tickets and questions data
+      final checklistId = widget.item['id'] as int;
+      final response = await http.get(
+        Uri.parse('${AuthService.baseUrl}/api/auditor/checklists/$checklistId'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${userData['token']}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final checklistData = data['data'];
+          final tickets = checklistData['tickets'] as Map<String, dynamic>? ?? {};
+          final answers = checklistData['answers'] as Map<String, dynamic>? ?? {};
+          final checklist = checklistData['checklist'] as Map<String, dynamic>?;
+          final theme = checklist?['theme'] as Map<String, dynamic>?;
+          final groups = theme?['groups'] as List<dynamic>? ?? [];
+
+          // Calculate pending tickets count (tickets that are not completed/resolved/closed)
+          int pendingTickets = 0;
+          int totalQuestions = 0;
+          int answeredQuestions = 0;
+          int lockedQuestions = 0;
+
+          for (var group in groups) {
+            final groupData = group as Map<String, dynamic>;
+            final questions = groupData['questions'] as List<dynamic>? ?? [];
+
+            for (var question in questions) {
+              final questionData = question as Map<String, dynamic>;
+              final questionId = questionData['id'] as int;
+              totalQuestions++;
+
+              // Check if question has an answer
+              bool hasAnswer = false;
+              if (answers.containsKey(questionId.toString())) {
+                final answer = answers[questionId.toString()];
+                if (answer != null && answer is Map) {
+                  final value = answer['value'];
+                  if (value != null && value.toString().isNotEmpty) {
+                    hasAnswer = true;
+                  }
+                }
+              }
+
+              // Check if question is locked (has a ticket that's not completed)
+              bool isLocked = false;
+              if (tickets.containsKey(questionId.toString())) {
+                final ticket = tickets[questionId.toString()] as Map<String, dynamic>?;
+                final ticketStatus = ticket?['ticket_status'] as Map<String, dynamic>?;
+                final ticketStatusTitle = ticketStatus?['title'] as String? ?? '';
+                final isTicketCompleted = ticketStatusTitle.toLowerCase().contains('completed') ||
+                    ticketStatusTitle.toLowerCase().contains('complete') ||
+                    ticketStatusTitle.toLowerCase().contains('resolved') ||
+                    ticketStatusTitle.toLowerCase().contains('closed');
+                
+                if (!isTicketCompleted) {
+                  isLocked = true;
+                  lockedQuestions++;
+                  pendingTickets++;
+                }
+              }
+
+              // Count as completed if it has an answer OR is locked (locked = completed for checklist completion)
+              // This allows checklist to be marked as completed even if some questions are locked
+              if (hasAnswer || isLocked) {
+                answeredQuestions++;
+              }
+            }
+          }
+
+          // Calculate adjusted progress
+          int adjustedAnswered = answeredQuestions; // This already includes locked questions
+          int adjustedTotal = totalQuestions;
+          int adjustedPercent = adjustedTotal > 0
+              ? ((adjustedAnswered / adjustedTotal) * 100).round()
+              : 0;
+
+          // Determine status
+          String adjustedStatus;
+          if (adjustedTotal == 0) {
+            adjustedStatus = 'No Questions';
+          } else if (adjustedAnswered == 0) {
+            adjustedStatus = 'Not Started';
+          } else if (adjustedAnswered == adjustedTotal) {
+            adjustedStatus = 'Completed';
+          } else {
+            adjustedStatus = 'In Progress';
+          }
+
+          if (mounted) {
+            setState(() {
+              _pendingTicketsCount = pendingTickets;
+              _adjustedProgress = {
+                'answered': adjustedAnswered,
+                'total': adjustedTotal,
+                'percent': adjustedPercent,
+                'status': adjustedStatus,
+                'answered_total': '$adjustedAnswered/$adjustedTotal',
+              };
+              _loadingTickets = false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Error loading tickets: $e');
+      if (mounted) {
+        setState(() {
+          _loadingTickets = false;
+        });
+      }
+    }
+  }
 
   Color _statusColor(String status) {
     switch (status.toUpperCase()) {
@@ -608,23 +751,20 @@ class _ChecklistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate actual status based on progress
-    final answeredTotal = (item['answered_total'] ?? '0/0').toString();
+    // Use adjusted progress if available, otherwise use original
+    final progress = _adjustedProgress ?? {
+      'answered_total': widget.item['answered_total'] ?? '0/0',
+      'percent': widget.item['percent'] ?? 0,
+      'status': _calculateStatusFromItem(),
+    };
+
+    final answeredTotal = (progress['answered_total'] ?? '0/0').toString();
     final parts = answeredTotal.split('/');
     final answered = int.tryParse(parts[0]) ?? 0;
     final total = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
     
-    String actualStatus;
-    if (total == 0) {
-      actualStatus = 'No Questions';
-    } else if (answered == 0) {
-      actualStatus = 'Not Started';
-    } else if (answered == total) {
-      actualStatus = 'Completed';
-    } else {
-      actualStatus = 'In Progress';
-    }
-    
+    final actualStatus = progress['status'] as String? ?? _calculateStatusFromItem();
+    final percent = (progress['percent'] as num?)?.toInt() ?? (widget.item['percent'] ?? 0) as int;
     final color = _statusColor(actualStatus);
     return Container(
       decoration: BoxDecoration(
@@ -648,14 +788,16 @@ class _ChecklistCard extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (context) => ChecklistDetailPage(
-                  checklistId: item['id'] as int,
-                  checklistTitle: (item['title'] ?? 'Checklist').toString(),
+                  checklistId: widget.item['id'] as int,
+                  checklistTitle: (widget.item['title'] ?? 'Checklist').toString(),
                 ),
               ),
             );
             
             // Refresh data when returning from detail page
-            onNavigateBack?.call();
+            widget.onNavigateBack?.call();
+            // Reload tickets and progress
+            _loadTicketsAndCalculateProgress();
           },
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -668,7 +810,7 @@ class _ChecklistCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        (item['title'] ?? '').toString(),
+                        (widget.item['title'] ?? '').toString(),
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -691,7 +833,7 @@ class _ChecklistCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        (item['answered_total'] ?? '').toString(),
+                        answeredTotal,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -711,7 +853,7 @@ class _ChecklistCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        (item['location'] ?? '').toString(),
+                        (widget.item['location'] ?? '').toString(),
                         style: TextStyle(
                           fontSize: 12, 
                           color: Colors.grey[600], 
@@ -743,7 +885,7 @@ class _ChecklistCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          (item['first_question'] ?? '').toString(),
+                          (widget.item['first_question'] ?? '').toString(),
                           style: TextStyle(
                             fontSize: 12, 
                             color: Colors.grey[700],
@@ -783,7 +925,7 @@ class _ChecklistCard extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value: ((item['percent'] ?? 0) as num).toDouble() / 100.0,
+                          value: (percent / 100.0).clamp(0.0, 1.0),
                           backgroundColor: Colors.grey[200],
                           color: color,
                           minHeight: 6,
@@ -792,7 +934,7 @@ class _ChecklistCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${item['percent'] ?? 0}%',
+                      '$percent%',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -804,6 +946,41 @@ class _ChecklistCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 
+                // Pending tickets display (if any)
+                if (_pendingTicketsCount > 0) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFEF4444).withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.support_agent,
+                          size: 14,
+                          color: const Color(0xFFEF4444),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$_pendingTicketsCount ${_pendingTicketsCount == 1 ? 'pending ticket' : 'pending tickets'}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFEF4444),
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                
                 // Due and Next dates - more compact
                 Row(
                   children: [
@@ -811,7 +988,7 @@ class _ChecklistCard extends StatelessWidget {
                       child: _buildDateChip(
                         Icons.calendar_today_rounded,
                         'Due',
-                        (item['due_date'] ?? '').toString(),
+                        (widget.item['due_date'] ?? '').toString(),
                         Colors.red,
                       ),
                     ),
@@ -820,7 +997,7 @@ class _ChecklistCard extends StatelessWidget {
                       child: _buildDateChip(
                         Icons.schedule_rounded,
                         'Next',
-                        (item['next_time'] ?? '').toString(),
+                        (widget.item['next_time'] ?? '').toString(),
                         Colors.blue,
                       ),
                     ),
@@ -832,6 +1009,23 @@ class _ChecklistCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _calculateStatusFromItem() {
+    final answeredTotal = (widget.item['answered_total'] ?? '0/0').toString();
+    final parts = answeredTotal.split('/');
+    final answered = int.tryParse(parts[0]) ?? 0;
+    final total = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    
+    if (total == 0) {
+      return 'No Questions';
+    } else if (answered == 0) {
+      return 'Not Started';
+    } else if (answered == total) {
+      return 'Completed';
+    } else {
+      return 'In Progress';
+    }
   }
 
   Widget _buildDateChip(IconData icon, String label, String date, Color color) {

@@ -1,6 +1,5 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Modern Color Palette
@@ -47,60 +46,24 @@ class AppTheme {
   static const Color mediumPriority = Color(0xFFFF9800);
   static const Color lowPriority = Color(0xFF4CAF50);
 
-  // iOS System Font (San Francisco)
-  // Helper to create TextStyle with optional fontFamily
+  // Inter Font - Similar to San Francisco, available on all platforms via google_fonts
+  // Helper to create TextStyle with Inter font
   static TextStyle _textStyleWithFont({
-    String? fontFamily,
     required double fontSize,
     required FontWeight fontWeight,
     required Color color,
   }) {
-    if (fontFamily != null) {
-      return TextStyle(
-        fontFamily: fontFamily,
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        color: color,
-      );
-    } else {
-      return TextStyle(
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        color: color,
-      );
-    }
-  }
-
-  // Get font family based on platform
-  static String? get _fontFamily {
-    if (Platform.isIOS) {
-      // iOS: Use SF Pro Text explicitly
-      return '.SF Pro Text';
-    } else if (Platform.isMacOS) {
-      // macOS: Use SF Pro Text
-      return '.SF Pro Text';
-    }
-    // For other platforms, return null to use system default
-    return null;
-  }
-
-  static String? get _displayFontFamily {
-    if (Platform.isIOS) {
-      // iOS: Use SF Pro Display for headings
-      return '.SF Pro Display';
-    } else if (Platform.isMacOS) {
-      // macOS: Use SF Pro Display
-      return '.SF Pro Display';
-    }
-    // For other platforms, return null to use system default
-    return null;
+    return GoogleFonts.inter(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+    );
   }
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      fontFamily: _fontFamily,
       colorScheme: const ColorScheme.light(
         primary: primaryRed,
         secondary: primaryPurple,
@@ -112,21 +75,21 @@ class AppTheme {
         onBackground: textPrimary,
       ),
       textTheme: TextTheme(
-        displayLarge: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 57, fontWeight: FontWeight.w400, color: textPrimary),
-        displayMedium: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 45, fontWeight: FontWeight.w400, color: textPrimary),
-        displaySmall: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 36, fontWeight: FontWeight.w400, color: textPrimary),
-        headlineLarge: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 32, fontWeight: FontWeight.w600, color: textPrimary),
-        headlineMedium: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 28, fontWeight: FontWeight.w600, color: textPrimary),
-        headlineSmall: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 24, fontWeight: FontWeight.w600, color: textPrimary),
-        titleLarge: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 22, fontWeight: FontWeight.w600, color: textPrimary),
-        titleMedium: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w500, color: textPrimary),
-        titleSmall: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
-        bodyLarge: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w400, color: textPrimary),
-        bodyMedium: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textSecondary),
-        bodySmall: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 12, fontWeight: FontWeight.w400, color: textSecondary),
-        labelLarge: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
-        labelMedium: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 12, fontWeight: FontWeight.w500, color: textPrimary),
-        labelSmall: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: textPrimary),
+        displayLarge: _textStyleWithFont(fontSize: 57, fontWeight: FontWeight.w400, color: textPrimary),
+        displayMedium: _textStyleWithFont(fontSize: 45, fontWeight: FontWeight.w400, color: textPrimary),
+        displaySmall: _textStyleWithFont(fontSize: 36, fontWeight: FontWeight.w400, color: textPrimary),
+        headlineLarge: _textStyleWithFont(fontSize: 32, fontWeight: FontWeight.w600, color: textPrimary),
+        headlineMedium: _textStyleWithFont(fontSize: 28, fontWeight: FontWeight.w600, color: textPrimary),
+        headlineSmall: _textStyleWithFont(fontSize: 24, fontWeight: FontWeight.w600, color: textPrimary),
+        titleLarge: _textStyleWithFont(fontSize: 22, fontWeight: FontWeight.w600, color: textPrimary),
+        titleMedium: _textStyleWithFont(fontSize: 16, fontWeight: FontWeight.w500, color: textPrimary),
+        titleSmall: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
+        bodyLarge: _textStyleWithFont(fontSize: 16, fontWeight: FontWeight.w400, color: textPrimary),
+        bodyMedium: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w400, color: textSecondary),
+        bodySmall: _textStyleWithFont(fontSize: 12, fontWeight: FontWeight.w400, color: textSecondary),
+        labelLarge: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
+        labelMedium: _textStyleWithFont(fontSize: 12, fontWeight: FontWeight.w500, color: textPrimary),
+        labelSmall: _textStyleWithFont(fontSize: 11, fontWeight: FontWeight.w500, color: textPrimary),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: lightBackground,
@@ -134,7 +97,6 @@ class AppTheme {
         elevation: 0,
         centerTitle: true,
         titleTextStyle: _textStyleWithFont(
-          fontFamily: _displayFontFamily,
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: textPrimary,
@@ -198,7 +160,7 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: surfaceColor,
         selectedColor: primaryPurple.withOpacity(0.2),
-        labelStyle: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textPrimary),
+        labelStyle: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w400, color: textPrimary),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -210,7 +172,6 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      fontFamily: _fontFamily,
       colorScheme: const ColorScheme.dark(
         primary: primaryRed,
         secondary: primaryPurple,
@@ -222,21 +183,21 @@ class AppTheme {
         onBackground: textLight,
       ),
       textTheme: TextTheme(
-        displayLarge: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 57, fontWeight: FontWeight.w400, color: textLight),
-        displayMedium: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 45, fontWeight: FontWeight.w400, color: textLight),
-        displaySmall: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 36, fontWeight: FontWeight.w400, color: textLight),
-        headlineLarge: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 32, fontWeight: FontWeight.w600, color: textLight),
-        headlineMedium: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 28, fontWeight: FontWeight.w600, color: textLight),
-        headlineSmall: _textStyleWithFont(fontFamily: _displayFontFamily, fontSize: 24, fontWeight: FontWeight.w600, color: textLight),
-        titleLarge: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 22, fontWeight: FontWeight.w600, color: textLight),
-        titleMedium: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w500, color: textLight),
-        titleSmall: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w500, color: textLight),
-        bodyLarge: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w400, color: textLight),
-        bodyMedium: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textLight),
-        bodySmall: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 12, fontWeight: FontWeight.w400, color: textLight),
-        labelLarge: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w500, color: textLight),
-        labelMedium: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 12, fontWeight: FontWeight.w500, color: textLight),
-        labelSmall: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: textLight),
+        displayLarge: _textStyleWithFont(fontSize: 57, fontWeight: FontWeight.w400, color: textLight),
+        displayMedium: _textStyleWithFont(fontSize: 45, fontWeight: FontWeight.w400, color: textLight),
+        displaySmall: _textStyleWithFont(fontSize: 36, fontWeight: FontWeight.w400, color: textLight),
+        headlineLarge: _textStyleWithFont(fontSize: 32, fontWeight: FontWeight.w600, color: textLight),
+        headlineMedium: _textStyleWithFont(fontSize: 28, fontWeight: FontWeight.w600, color: textLight),
+        headlineSmall: _textStyleWithFont(fontSize: 24, fontWeight: FontWeight.w600, color: textLight),
+        titleLarge: _textStyleWithFont(fontSize: 22, fontWeight: FontWeight.w600, color: textLight),
+        titleMedium: _textStyleWithFont(fontSize: 16, fontWeight: FontWeight.w500, color: textLight),
+        titleSmall: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w500, color: textLight),
+        bodyLarge: _textStyleWithFont(fontSize: 16, fontWeight: FontWeight.w400, color: textLight),
+        bodyMedium: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w400, color: textLight),
+        bodySmall: _textStyleWithFont(fontSize: 12, fontWeight: FontWeight.w400, color: textLight),
+        labelLarge: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w500, color: textLight),
+        labelMedium: _textStyleWithFont(fontSize: 12, fontWeight: FontWeight.w500, color: textLight),
+        labelSmall: _textStyleWithFont(fontSize: 11, fontWeight: FontWeight.w500, color: textLight),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: darkBackground,
@@ -244,7 +205,6 @@ class AppTheme {
         elevation: 0,
         centerTitle: true,
         titleTextStyle: _textStyleWithFont(
-          fontFamily: _displayFontFamily,
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: textLight,
@@ -308,7 +268,7 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: const Color(0xFF2C2C2C),
         selectedColor: primaryPurple.withOpacity(0.2),
-        labelStyle: _textStyleWithFont(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textLight),
+        labelStyle: _textStyleWithFont(fontSize: 14, fontWeight: FontWeight.w400, color: textLight),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -353,44 +313,38 @@ class AppTheme {
     );
   }
 
-  // Text styles with iOS font
+  // Text styles with Inter font
   static TextStyle get heading1 => _textStyleWithFont(
-    fontFamily: _displayFontFamily,
     fontSize: 28,
     fontWeight: FontWeight.bold,
     color: textPrimary,
   );
 
   static TextStyle get heading2 => _textStyleWithFont(
-    fontFamily: _displayFontFamily,
     fontSize: 24,
     fontWeight: FontWeight.w600,
     color: textPrimary,
   );
 
   static TextStyle get heading3 => _textStyleWithFont(
-    fontFamily: _displayFontFamily,
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: textPrimary,
   );
 
   static TextStyle get bodyLarge => _textStyleWithFont(
-    fontFamily: _fontFamily,
     fontSize: 16,
     fontWeight: FontWeight.w500,
     color: textPrimary,
   );
 
   static TextStyle get bodyMedium => _textStyleWithFont(
-    fontFamily: _fontFamily,
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: textSecondary,
   );
 
   static TextStyle get bodySmall => _textStyleWithFont(
-    fontFamily: _fontFamily,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: textSecondary,
