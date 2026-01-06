@@ -982,6 +982,20 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                              options.any((o) => o.toLowerCase() == 'n/a' || o.toLowerCase() == 'na'));
     
     if (isToggleQuestion) {
+      // Check if a ticket has been created for this question
+      bool hasTicket = false;
+      final ticketsData = _checklistData?['tickets'];
+      if (ticketsData != null && ticketsData is Map) {
+        final tickets = ticketsData as Map<String, dynamic>;
+        if (tickets.containsKey(questionId.toString())) {
+          final ticket = tickets[questionId.toString()];
+          if (ticket != null && ticket is Map) {
+            final ticketId = ticket['id'];
+            hasTicket = ticketId != null;
+          }
+        }
+      }
+      
       // Match second image: Simple toggle switches with gray background, white handle on left, text on right
       // If question is disabled (locked with ticket), set "No" as the default answer
       if (disabled && !_answers.containsKey(questionId)) {
@@ -996,6 +1010,8 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
           final trimmedOption = option.trim();
           final optionLower = trimmedOption.toLowerCase();
           final isSelected = currentAnswer == optionLower;
+          // Make "No" red if ticket is created
+          final isNoWithTicket = optionLower == 'no' && hasTicket;
           
           return GestureDetector(
                   onTap: disabled ? null : () async {
@@ -1029,13 +1045,17 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                     decoration: BoxDecoration(
                 color: disabled 
                     ? Colors.grey.shade300 
-                    : (isSelected ? const Color(0xFF3B82F6) : Colors.grey.shade200), // Blue when selected
+                    : (isSelected 
+                        ? (isNoWithTicket ? Colors.red : const Color(0xFF3B82F6)) // Red when "No" with ticket, blue otherwise
+                        : (isNoWithTicket ? Colors.red.withOpacity(0.2) : Colors.grey.shade200)), // Red tint when "No" with ticket
                 borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                   color: disabled
                       ? Colors.grey.shade400
-                      : (isSelected ? const Color(0xFF3B82F6) : Colors.grey.shade300),
-                        width: 1,
+                      : (isSelected 
+                          ? (isNoWithTicket ? Colors.red : const Color(0xFF3B82F6)) // Red border when "No" with ticket
+                          : (isNoWithTicket ? Colors.red : Colors.grey.shade300)), // Red border when "No" with ticket
+                        width: isNoWithTicket ? 2 : 1,
                       ),
                     ),
               child: Stack(
@@ -1053,9 +1073,11 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                           style: TextStyle(
                             color: disabled
                                 ? Colors.grey.shade600
-                                : (isSelected ? Colors.white : Colors.grey.shade700),
+                                : (isSelected 
+                                    ? Colors.white 
+                                    : (isNoWithTicket ? Colors.red : Colors.grey.shade700)), // Red text when "No" with ticket
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: isNoWithTicket ? FontWeight.w700 : FontWeight.w600, // Bolder when ticket exists
                             letterSpacing: 0.3,
                           ),
                         ),
@@ -1092,15 +1114,32 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
       );
     }
     
+    // Check if a ticket has been created for this question
+    bool hasTicket = false;
+    final ticketsData = _checklistData?['tickets'];
+    if (ticketsData != null && ticketsData is Map) {
+      final tickets = ticketsData as Map<String, dynamic>;
+      if (tickets.containsKey(questionId.toString())) {
+        final ticket = tickets[questionId.toString()];
+        if (ticket != null && ticket is Map) {
+          final ticketId = ticket['id'];
+          hasTicket = ticketId != null;
+        }
+      }
+    }
+    
     // For other options, use the original button layout
     // Match web logic: compare case-insensitively, store trimmed value
     return Row(
             children: options.map((option) {
         final trimmedOption = option.trim();
+        final optionLower = trimmedOption.toLowerCase();
         final currentAnswer = _answers[questionId]?.toString().trim();
         // Case-insensitive comparison (matching web: $answer == trim($opt))
         final isSelected = currentAnswer != null && 
-                          currentAnswer.toLowerCase() == trimmedOption.toLowerCase();
+                          currentAnswer.toLowerCase() == optionLower;
+        // Make "No" red if ticket is created
+        final isNoWithTicket = optionLower == 'no' && hasTicket;
         
         return Expanded(
           child: Padding(
@@ -1129,14 +1168,22 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                   decoration: BoxDecoration(
                     color: isSelected 
-                      ? (disabled ? Colors.grey.shade200 : const Color(0xFF3B82F6).withOpacity(0.1))
-                      : (disabled ? Colors.grey.shade100 : Colors.grey.shade50),
+                      ? (disabled 
+                          ? Colors.grey.shade200 
+                          : (isNoWithTicket ? Colors.red.withOpacity(0.1) : const Color(0xFF3B82F6).withOpacity(0.1))) // Red background when "No" with ticket
+                      : (disabled 
+                          ? Colors.grey.shade100 
+                          : (isNoWithTicket ? Colors.red.shade50 : Colors.grey.shade50)), // Red tint when "No" with ticket
                   borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected 
-                      ? (disabled ? Colors.grey : const Color(0xFF3B82F6))
-                      : (disabled ? Colors.grey.shade300 : Colors.grey.shade300),
-                    width: isSelected ? 2 : 1,
+                      ? (disabled 
+                          ? Colors.grey 
+                          : (isNoWithTicket ? Colors.red : const Color(0xFF3B82F6))) // Red border when "No" with ticket
+                      : (disabled 
+                          ? Colors.grey.shade300 
+                          : (isNoWithTicket ? Colors.red.shade300 : Colors.grey.shade300)), // Red border when "No" with ticket
+                    width: (isSelected || isNoWithTicket) ? 2 : 1,
                     ),
                   ),
                   child: Row(
@@ -1146,7 +1193,9 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                       Icon(
                         Icons.check_circle_rounded,
                         size: 18,
-                        color: disabled ? Colors.grey.shade600 : const Color(0xFF3B82F6),
+                        color: disabled 
+                          ? Colors.grey.shade600 
+                          : (isNoWithTicket ? Colors.red : const Color(0xFF3B82F6)), // Red icon when "No" with ticket
                       ),
                     if (isSelected) const SizedBox(width: 8),
                       Text(
@@ -1154,9 +1203,11 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                         style: TextStyle(
                           color: disabled 
                           ? Colors.grey.shade600 
-                          : (isSelected ? const Color(0xFF3B82F6) : Colors.grey.shade700),
+                          : (isSelected 
+                              ? (isNoWithTicket ? Colors.red : const Color(0xFF3B82F6)) // Red text when "No" with ticket
+                              : (isNoWithTicket ? Colors.red.shade700 : Colors.grey.shade700)), // Red text when "No" with ticket
                           fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: (isSelected || isNoWithTicket) ? FontWeight.w700 : FontWeight.w600, // Bolder when ticket exists
                         letterSpacing: -0.2,
                         ),
                       ),
@@ -1825,6 +1876,7 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
         // Calculate progress for this group (including locked questions as completed)
         int answeredInGroup = 0;
         int totalInGroup = questions.length;
+        int ticketCountInGroup = 0; // Count of non-completed tickets in this group
         final ticketsData = _checklistData?['tickets'];
         final isChecklistCompleted = _isChecklistCompleted();
         
@@ -1859,6 +1911,11 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                                        ticketStatusTitle.toLowerCase().contains('closed');
               // Question is locked if ticket exists and is not completed
               isLocked = !isTicketCompleted;
+              
+              // Count non-completed tickets for the badge
+              if (!isTicketCompleted) {
+                ticketCountInGroup++;
+              }
             }
           }
           
@@ -1882,6 +1939,7 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
             startIndex: globalQuestionIndex,
             answeredCount: answeredInGroup,
             totalCount: totalInGroup,
+            ticketCount: ticketCountInGroup,
           ),
         );
 
@@ -1903,6 +1961,7 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
     required int startIndex,
     required int answeredCount,
     required int totalCount,
+    required int ticketCount,
   }) {
     final isExpanded = _expandedGroups[groupId] ?? true;
     final progress = totalCount > 0 ? answeredCount / totalCount : 0.0;
@@ -2031,6 +2090,41 @@ class _ChecklistDetailPageState extends State<ChecklistDetailPage> {
                           ],
                         ),
                       ),
+                      
+                      // Ticket Count Badge (only show if there are tickets)
+                      if (ticketCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFEF4444).withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.support_agent_rounded,
+                                color: const Color(0xFFEF4444),
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$ticketCount',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFEF4444),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       
                       const SizedBox(width: 8),
                       

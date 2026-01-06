@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  //static const String baseUrl = 'https://stageqmaps.aipopuli.com';
+  static const String baseUrl = 'https://stageqmaps.aipopuli.com';
 
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  //static const String baseUrl = 'http://127.0.0.1:8000';
   
   // Email/Password Login API
   static Future<Map<String, dynamic>> loginWithEmailPassword({
@@ -68,9 +68,9 @@ class AuthService {
         print('Debug - Previous user ID: $previousUserId');
         print('Debug - New user ID: $newUserId');
         
-        // If different user, clear all previous user data including PIN
+        // If different user, clear all previous user da ta including PIN
         if (previousUserId != null && newUserId != null && previousUserId != newUserId) {
-          print('Debug - Different user detected! Clearing previous user data and PIN');
+          print('Debug - Different usehttps://www.facebook.com/share/17PfbZLN3x/?mibextid=wwXIfrr detected! Clearing previous user data and PIN');
           await clearAllData(); // Clear everything including PIN
         }
       } catch (e) {

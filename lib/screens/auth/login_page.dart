@@ -313,29 +313,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       
                       const SizedBox(height: 20),
                       
-                      // Debug button to clear all data (for testing)
-                      if (true) // Set to false in production
-                        TextButton(
-                          onPressed: () async {
-                            await AuthService.clearAllData();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('All session data cleared!'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                          child: const Text(
-                            'Clear All Data (Debug)',
-                  style: TextStyle(
-                              color: Colors.red,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      
                       // Spacer to push content to center when there's extra space
                       const Spacer(),
                     ],
